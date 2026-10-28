@@ -73,6 +73,7 @@ export default function PreTrip({ onBack }) {
     await supabase.from('driver_stats').upsert({
       driver_id:           driver.id,
       total_points:        totalPoints,
+      quarter_points:      Math.max(0, (stats.quarter_points ?? 0) + pointsEarned + bonusPoints),
       current_streak:      newStreak,
       longest_streak:      Math.max(stats.longest_streak ?? 0, newStreak),
       last_pre_trip_date:  today,

@@ -1929,3 +1929,82 @@ button { cursor: pointer; font: inherit; border: none; background: none; color: 
 .expiry-inline.expiry-red   { color: var(--red);   font-weight: 700; }
 .expiry-inline.expiry-amber { color: var(--amber);  font-weight: 600; }
 .expiry-inline.expiry-green { color: var(--text-2); }
+
+/* ─── Admin Documents ────────────────────────────────────── */
+.admin-docs { padding: 0; }
+.doc-list   { display: flex; flex-direction: column; gap: 8px; }
+.doc-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.doc-icon   { font-size: 22px; flex-shrink: 0; padding-top: 2px; }
+.doc-info   { flex: 1; min-width: 0; }
+.doc-name   { font-size: 13px; font-weight: 600; }
+.doc-desc   { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.doc-meta   { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; align-items: center; }
+.doc-cat-chip {
+  font-size: 10px; font-weight: 600; padding: 2px 7px;
+  border-radius: 20px; background: var(--bg-3); color: var(--text-2);
+  border: 1px solid var(--border);
+}
+.doc-fleet-chip {
+  font-size: 10px; font-weight: 600; padding: 2px 7px;
+  border-radius: 20px; background: rgba(212,175,55,.12); color: var(--accent);
+}
+.doc-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+/* ─── Driver Docs page ───────────────────────────────────── */
+.driver-docs { padding-bottom: 24px; }
+.driver-doc-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color .12s;
+}
+.driver-doc-row:hover { border-color: var(--accent); }
+.driver-doc-icon { font-size: 22px; flex-shrink: 0; }
+.driver-doc-info { flex: 1; min-width: 0; }
+.driver-doc-name { font-size: 13px; font-weight: 600; }
+.driver-doc-desc { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+.driver-doc-meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.driver-doc-arrow { font-size: 18px; color: var(--text-2); flex-shrink: 0; }
+
+/* ─── Empty card (shared) ────────────────────────────────── */
+.empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  background: var(--bg-2);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+/* ─── External video link button ─────────────────────────────*/
+.video-external-link {
+  display: block;
+  padding: 14px 20px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  transition: border-color .12s;
+}
+.video-external-link:hover { border-color: var(--accent); }

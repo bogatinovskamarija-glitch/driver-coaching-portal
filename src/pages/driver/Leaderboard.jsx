@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 
 const REWARD_THRESHOLD = 1000
+const REWARD_AMOUNT    = '$500'
 
 function ProgressBar({ current, max, accent }) {
   const pct = Math.min(100, Math.round((current / max) * 100))
@@ -13,7 +14,7 @@ function ProgressBar({ current, max, accent }) {
       </div>
       <div className="reward-bar-labels">
         <span>{current.toLocaleString()} pts</span>
-        <span style={{ color: '#22c55e', fontWeight: 700 }}>{pct}% → $100</span>
+        <span style={{ color: '#22c55e', fontWeight: 700 }}>{pct}% → {REWARD_AMOUNT}</span>
         <span>{max.toLocaleString()} pts</span>
       </div>
     </div>
@@ -40,7 +41,7 @@ export default function Leaderboard() {
       const sorted = data
         .map(d => ({
           ...d,
-          pts:    d.driver_stats?.[0]?.total_points ?? 0,
+          pts:    d.driver_stats?.[0]?.quarter_points ?? 0,
           streak: d.driver_stats?.[0]?.current_streak ?? 0,
           mods:   d.driver_stats?.[0]?.modules_completed ?? 0,
         }))
@@ -52,7 +53,7 @@ export default function Leaderboard() {
 
   if (loading) return <div className="page-loader">Loading…</div>
 
-  const myPoints = stats?.total_points ?? 0
+  const myPoints = stats?.quarter_points ?? 0
   const myRank   = rows.findIndex(r => r.id === driver?.id) + 1
 
   const medalFor = (rank) => rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null
@@ -61,7 +62,7 @@ export default function Leaderboard() {
     <div className="leaderboard">
       <div className="lb-header">
         <div className="lb-title">🏆 Driver Leaderboard</div>
-        <div className="lb-sub">1,000 points = $100 bonus reward</div>
+        <div className="lb-sub">1,000 pts this quarter = $500 bonus · resets each quarter</div>
       </div>
 
       {/* Your progress */}
@@ -73,7 +74,7 @@ export default function Leaderboard() {
         <ProgressBar current={myPoints} max={REWARD_THRESHOLD} />
         {myPoints >= REWARD_THRESHOLD && (
           <div className="lb-reward-earned">
-            🎉 You've earned your $100 reward — see your dispatcher!
+            🎉 You earned your $500 quarterly reward — see your dispatcher!
           </div>
         )}
       </div>

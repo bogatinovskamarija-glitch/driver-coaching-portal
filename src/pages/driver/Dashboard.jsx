@@ -98,23 +98,15 @@ export default function Dashboard({ onNav }) {
   }
 
   async function loadNextModule() {
-    // Get completed module IDs
-    const { data: done } = await supabase
-      .from('module_completions')
-      .select('module_id')
+    // Show next pending assignment instead of the full module library
+    const { data } = await supabase
+      .from('training_assignments')
+      .select('*, coaching_modules(id, title, category, points_value, duration_minutes)')
       .eq('driver_id', driver.id)
-    const doneIds = (done ?? []).map(d => d.module_id)
-
-    // Get next active module not completed
-    const { data: modules } = await supabase
-      .from('coaching_modules')
-      .select('*')
-      .eq('is_active', true)
-      .order('sort_order')
-
-    if (!modules) return
-    const next = modules.find(m => !doneIds.includes(m.id))
-    setNextModule(next ?? null)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+      .limit(1)
+    setNextModule(data?.[0]?.coaching_modules ?? null)
   }
 
   async function loadBadges() {
@@ -167,24 +159,27 @@ export default function Dashboard({ onNav }) {
           </div>
         </div>
 
-        {/* $100 reward progress bar */}
-        <div className="reward-progress">
-          <div className="reward-progress-label">
-            <span>💵 Progress to $100 Reward</span>
-            <span style={{ color: '#22c55e', fontWeight: 600 }}>{Math.min(100, Math.round(points / 10))}%</span>
-          </div>
-          <div className="reward-progress-track">
-            <div
-              className="reward-progress-fill"
-              style={{ width: `${Math.min(100, (points / 1000) * 100)}%` }}
-            />
-          </div>
-          <div className="reward-progress-sub">
-            {points >= 1000
-              ? '🎉 You earned your $100 — talk to your dispatcher!'
-              : `${(1000 - points).toLocaleString()} pts to go`}
-          </div>
-        </div>
+        {/* $500 quarterly reward progress bar */}
+        {(() => {
+          const qPts = stats.quarter_points ?? 0
+          const pct  = Math.min(100, Math.round((qPts / 1000) * 100))
+          return (
+            <div className="reward-progress">
+              <div className="reward-progress-label">
+                <span>💵 This Quarter — Progress to $500</span>
+                <span style={{ color: '#22c55e', fontWeight: 600 }}>{pct}%</span>
+              </div>
+              <div className="reward-progress-track">
+                <div className="reward-progress-fill" style={{ width: `${pct}%` }} />
+              </div>
+              <div className="reward-progress-sub">
+                {qPts >= 1000
+                  ? '🎉 You earned $500 this quarter — talk to your dispatcher!'
+                  : `${qPts.toLocaleString()} / 1,000 pts · ${(1000 - qPts).toLocaleString()} to go`}
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       <div className="dash-body">

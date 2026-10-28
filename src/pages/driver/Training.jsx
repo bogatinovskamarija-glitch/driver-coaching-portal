@@ -11,12 +11,12 @@ const CATEGORY_META = {
 }
 
 const MOTIVE_TUTORIALS = [
-  { id: 'mt1', title: 'Getting Started with Motive ELD', desc: 'Set up your device and connect to the truck', url: 'https://helpmotive.com/hc/en-us/categories/360001782531', icon: '📱' },
-  { id: 'mt2', title: 'Creating & Managing Logs', desc: 'How to start a drive, switch duty status, and review your logs', url: 'https://helpmotive.com/hc/en-us/sections/360007344971', icon: '📋' },
-  { id: 'mt3', title: 'HOS Rules & Violations', desc: 'Understanding violations and how to avoid them', url: 'https://helpmotive.com/hc/en-us/sections/360007344991', icon: '⚠️' },
-  { id: 'mt4', title: 'Unidentified Driving Events', desc: 'How to claim or reject unassigned segments', url: 'https://helpmotive.com/hc/en-us/articles/360038038951', icon: '🔍' },
-  { id: 'mt5', title: 'Driver Vehicle Inspection Reports (DVIR)', desc: 'Completing pre-trip and post-trip inspection reports in the app', url: 'https://helpmotive.com/hc/en-us/sections/360007348451', icon: '✅' },
-  { id: 'mt6', title: 'Roadside Inspection Mode', desc: 'How to show logs to a DOT officer during a stop', url: 'https://helpmotive.com/hc/en-us/articles/360019767152', icon: '🚔' },
+  { id: 'mt1', title: 'Getting Started with Motive ELD', desc: 'Set up your device and connect to the truck', url: 'https://www.youtube.com/watch?v=t7debXI7icA', icon: '📱' },
+  { id: 'mt2', title: 'Creating & Managing Logs', desc: 'How to start a drive, switch duty status, and review your logs', url: 'https://vimeo.com/1221147277', icon: '📋' },
+  { id: 'mt3', title: 'HOS Rules & Violations', desc: 'Understanding violations and how to avoid them', url: 'https://vimeo.com/1202588866', icon: '⚠️' },
+  { id: 'mt4', title: 'Unidentified Driving Events', desc: 'How to claim or reject unassigned segments', url: 'https://helpcenter.gomotive.com/hc/en-us/p/video-library-category?role=fleet-admins&category=how-to&video=vim-073', icon: '🔍' },
+  { id: 'mt5', title: 'Driver Vehicle Inspection Reports (DVIR)', desc: 'Completing pre-trip and post-trip inspection reports in the app', url: 'https://www.youtube.com/watch?v=FXSEeLV1bfQ', icon: '✅' },
+  { id: 'mt6', title: 'Roadside Inspection Mode', desc: 'How to show logs to a DOT officer during a stop', url: 'https://vimeo.com/1180563724', icon: '🚔' },
 ]
 
 function Quiz({ module, onComplete }) {
@@ -153,6 +153,7 @@ function ModuleDetail({ module, completion, assignment, onBack, onComplete }) {
     await supabase.from('driver_stats').upsert({
       driver_id:         driver.id,
       total_points:      newTotal,
+      quarter_points:    Math.max(0, (stats.quarter_points ?? 0) + pts),
       modules_completed: newCompleted,
       updated_at:        new Date().toISOString(),
     })
@@ -209,26 +210,39 @@ function ModuleDetail({ module, completion, assignment, onBack, onComplete }) {
         </button>
       </div>
 
-      {phase === 'video' && module.youtube_video_id && (
-        <div className="video-wrap">
-          <iframe
-            src={`https://www.youtube.com/embed/${module.youtube_video_id}?rel=0&modestbranding=1`}
-            title={module.title}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-          <button className="btn-primary" style={{ marginTop: 16 }} onClick={() => setPhase('quiz')}>
-            Take the Quiz → ({module.points_value} pts)
-          </button>
-        </div>
-      )}
-
-      {phase === 'video' && !module.youtube_video_id && (
-        <div className="no-video">
-          <p>No video available. Proceed to the quiz.</p>
-          <button className="btn-primary" onClick={() => setPhase('quiz')}>Take the Quiz →</button>
-        </div>
-      )}
+      {phase === 'video' && (() => {
+        const url = module.video_url
+        const isEmbed = url && (url.includes('youtube.com/embed') || url.includes('player.vimeo.com'))
+        return url ? (
+          <div className="video-wrap">
+            {isEmbed ? (
+              <iframe
+                src={url}
+                title={module.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="video-external-link"
+              >
+                ↗ Watch Video (opens in browser)
+              </a>
+            )}
+            <button className="btn-primary" style={{ marginTop: 16 }} onClick={() => setPhase('quiz')}>
+              Take the Quiz → ({module.points_value} pts)
+            </button>
+          </div>
+        ) : (
+          <div className="no-video">
+            <p>No video available. Proceed to the quiz.</p>
+            <button className="btn-primary" onClick={() => setPhase('quiz')}>Take the Quiz →</button>
+          </div>
+        )
+      })()}
 
       {phase === 'quiz' && (
         <Quiz module={module} onComplete={handleQuizDone} />
@@ -245,68 +259,64 @@ function daysLeft(dueDate) {
 
 export default function Training() {
   const { driver } = useAuth()
-  const [modules, setModules]           = useState([])
-  const [completions, setCompletions]   = useState({})
   const [assignments, setAssignments]   = useState([])
+  const [completedAssigns, setCompleted] = useState([])
   const [selected, setSelected]         = useState(null)
+  const [selectedAssign, setSelectedAssign] = useState(null)
   const [result, setResult]             = useState(null)
   const [loading, setLoading]           = useState(true)
 
   useEffect(() => { load() }, [driver])
 
   async function load() {
-    const [{ data: mods }, { data: comps }, { data: assigns }] = await Promise.all([
-      supabase.from('coaching_modules').select('*').eq('is_active', true).order('sort_order'),
-      supabase.from('module_completions').select('*').eq('driver_id', driver.id),
-      supabase.from('training_assignments')
-        .select('*, coaching_modules(id, title, category, points_value, duration_minutes)')
-        .eq('driver_id', driver.id)
-        .neq('status', 'completed')
-        .order('created_at', { ascending: false }),
-    ])
-    setModules(mods ?? [])
-    const compMap = {}
-    for (const c of (comps ?? [])) compMap[c.module_id] = c
-    setCompletions(compMap)
-    setAssignments(assigns ?? [])
+    const { data: all } = await supabase
+      .from('training_assignments')
+      .select('*, coaching_modules(id, title, description, category, points_value, duration_minutes, video_url, quiz, sort_order, is_active)')
+      .eq('driver_id', driver.id)
+      .order('created_at', { ascending: false })
+
+    const pending   = (all ?? []).filter(a => a.status !== 'completed')
+    const completed = (all ?? []).filter(a => a.status === 'completed')
+    setAssignments(pending)
+    setCompleted(completed)
     setLoading(false)
   }
 
   function handleComplete(score, pts) {
     setResult({ score, pts })
     load()
-    setTimeout(() => { setResult(null); setSelected(null) }, 4000)
+    setTimeout(() => { setResult(null); setSelected(null); setSelectedAssign(null) }, 4000)
   }
 
-  if (loading) return <div className="page-loader">Loading modules…</div>
+  if (loading) return <div className="page-loader">Loading training…</div>
 
   if (selected) {
-    const assignment = assignments.find(a => a.module_id === selected.id) ?? null
     return (
       <ModuleDetail
         module={selected}
-        completion={completions[selected.id] ?? null}
-        assignment={assignment}
-        onBack={() => { setSelected(null); setResult(null) }}
+        completion={null}
+        assignment={selectedAssign}
+        onBack={() => { setSelected(null); setSelectedAssign(null); setResult(null) }}
         onComplete={handleComplete}
       />
     )
   }
 
-  const done  = modules.filter(m => completions[m.id]?.quiz_passed)
-  const total = modules.length
-
-  const pendingAssignments = assignments.filter(a => a.status !== 'completed')
+  function openAssignment(a) {
+    const mod = a.coaching_modules
+    if (!mod) return
+    setSelected(mod)
+    setSelectedAssign(a)
+  }
 
   return (
     <div className="training">
       <div className="training-header">
-        <h2>Training Modules</h2>
-        <div className="training-progress">
-          <div className="training-progress-bar">
-            <div style={{ width: `${total ? (done.length / total) * 100 : 0}%`, height: '100%', background: 'var(--accent)', borderRadius: 4 }} />
-          </div>
-          <span>{done.length}/{total} complete</span>
+        <h2>My Training</h2>
+        <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
+          {assignments.length > 0
+            ? `${assignments.length} module${assignments.length !== 1 ? 's' : ''} assigned`
+            : 'All clear'}
         </div>
       </div>
 
@@ -318,14 +328,14 @@ export default function Training() {
         </div>
       )}
 
-      {/* Assigned to You */}
-      {pendingAssignments.length > 0 && (
-        <div className="assigned-section">
+      {/* Pending assignments */}
+      {assignments.length > 0 && (
+        <div className="assigned-section" style={{ marginBottom: 20 }}>
           <div className="assigned-section-header">
             <span>📌 Assigned to You</span>
-            <span className="assigned-count">{pendingAssignments.length}</span>
+            <span className="assigned-count">{assignments.length}</span>
           </div>
-          {pendingAssignments.map(a => {
+          {assignments.map(a => {
             const mod = a.coaching_modules
             const dl  = daysLeft(a.due_date)
             const isOverdue = dl !== null && dl < 0
@@ -334,10 +344,7 @@ export default function Training() {
               <div
                 key={a.id}
                 className={`assigned-row ${isOverdue ? 'assigned-overdue' : isUrgent ? 'assigned-urgent' : ''}`}
-                onClick={() => {
-                  const fullMod = modules.find(m => m.id === mod?.id)
-                  if (fullMod) setSelected(fullMod)
-                }}
+                onClick={() => openAssignment(a)}
               >
                 <div className="assigned-row-left">
                   <div className="assigned-row-title">{mod?.title ?? 'Module'}</div>
@@ -351,13 +358,40 @@ export default function Training() {
                   {isOverdue ? <span className="assign-badge overdue">Overdue</span>
                     : isUrgent ? <span className="assign-badge urgent">Due in {dl}d</span>
                     : dl !== null ? <span className="assign-badge pending">{dl}d left</span>
-                    : <span className="assign-badge pending">Pending</span>}
-                  <span style={{ marginLeft: 6 }}>→</span>
+                    : <span className="assign-badge pending">Start →</span>}
                 </div>
               </div>
             )
           })}
         </div>
+      )}
+
+      {assignments.length === 0 && completedAssigns.length === 0 && (
+        <div className="empty-card" style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
+          <div style={{ fontWeight: 600 }}>No training assigned</div>
+          <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 4 }}>
+            Your dispatcher will assign modules when needed. Check back here.
+          </div>
+        </div>
+      )}
+
+      {/* Completed */}
+      {completedAssigns.length > 0 && (
+        <details style={{ marginBottom: 20 }}>
+          <summary style={{ fontSize: 12, color: 'var(--text-2)', cursor: 'pointer', paddingBottom: 8 }}>
+            {completedAssigns.length} completed module{completedAssigns.length !== 1 ? 's' : ''}
+          </summary>
+          {completedAssigns.map(a => (
+            <div key={a.id} className="assigned-row" style={{ opacity: .6 }} onClick={() => openAssignment(a)}>
+              <div className="assigned-row-left">
+                <div className="assigned-row-title">{a.coaching_modules?.title}</div>
+                {a.reason && <div className="assigned-row-reason">"{a.reason}"</div>}
+              </div>
+              <span className="assign-badge done">✓ Done</span>
+            </div>
+          ))}
+        </details>
       )}
 
       {/* Motive Tutorials Section */}
@@ -383,33 +417,6 @@ export default function Training() {
         </div>
       </div>
 
-      <div className="section-divider">Training Modules</div>
-
-      <div className="module-list">
-        {modules.map(m => {
-          const comp = completions[m.id]
-          const meta = CATEGORY_META[m.category] ?? {}
-          return (
-            <div key={m.id} className="module-row" onClick={() => setSelected(m)}>
-              <div className="module-row-icon" style={{ background: `${meta.color}22` }}>
-                {meta.icon}
-              </div>
-              <div className="module-row-info">
-                <div className="module-row-title">{m.title}</div>
-                <div className="module-row-meta">
-                  {m.duration_minutes} min · {m.points_value} pts
-                  {comp && <span className={`score-tag ${comp.quiz_passed ? 'pass' : 'fail'}`}>
-                    {comp.quiz_score}%
-                  </span>}
-                </div>
-              </div>
-              <div className="module-row-status">
-                {comp?.quiz_passed ? '✅' : comp ? '⚠️' : '→'}
-              </div>
-            </div>
-          )
-        })}
-      </div>
     </div>
   )
 }

@@ -34,6 +34,154 @@ function AssignmentBadge({ status, due }) {
   return <span className="assign-badge pending">Pending</span>
 }
 
+const DOT_RESULTS = [
+  { value: 'clean',    label: 'Clean — No Violations',    pts: 75,   color: '#22c55e' },
+  { value: 'minor',   label: 'Minor Violations',          pts: 0,    color: '#f59e0b' },
+  { value: 'major',   label: 'Major Violations',          pts: -50,  color: '#ef4444' },
+  { value: 'critical',label: 'Critical / Out of Service', pts: -100, color: '#ef4444' },
+]
+
+function DOTSection({ driverId, adminDriver }) {
+  const [inspections, setInspections] = useState([])
+  const [showForm, setShowForm]       = useState(false)
+  const [saving, setSaving]           = useState(false)
+  const [form, setForm] = useState({ result: 'clean', inspection_date: new Date().toISOString().split('T')[0], violations: '', notes: '' })
+
+  useEffect(() => { if (driverId) load() }, [driverId])
+
+  async function load() {
+    const { data } = await supabase
+      .from('dot_inspections')
+      .select('*')
+      .eq('driver_id', driverId)
+      .order('inspection_date', { ascending: false })
+    setInspections(data ?? [])
+  }
+
+  async function save() {
+    if (!driverId) return
+    setSaving(true)
+    const res     = DOT_RESULTS.find(r => r.value === form.result)
+    const ptsDelta = res?.pts ?? 0
+
+    await supabase.from('dot_inspections').insert({
+      driver_id:       driverId,
+      inspection_date: form.inspection_date,
+      result:          form.result,
+      violations:      form.violations || null,
+      notes:           form.notes || null,
+      points_change:   ptsDelta,
+      logged_by:       adminDriver?.id,
+    })
+
+    if (ptsDelta !== 0) {
+      await supabase.from('points_ledger').insert({
+        driver_id: driverId,
+        points:    ptsDelta,
+        reason:    `DOT Roadside Inspection — ${res?.label}`,
+        category:  'dot_inspection',
+      })
+      // Fetch and update stats
+      const { data: st } = await supabase.from('driver_stats').select('total_points,quarter_points').eq('driver_id', driverId).single()
+      if (st) {
+        await supabase.from('driver_stats').update({
+          total_points:   Math.max(0, (st.total_points ?? 0) + ptsDelta),
+          quarter_points: Math.max(0, (st.quarter_points ?? 0) + ptsDelta),
+        }).eq('driver_id', driverId)
+      }
+    }
+
+    setForm({ result: 'clean', inspection_date: new Date().toISOString().split('T')[0], violations: '', notes: '' })
+    setShowForm(false)
+    setSaving(false)
+    await load()
+  }
+
+  const selectedResult = DOT_RESULTS.find(r => r.value === form.result)
+
+  return (
+    <div className="detail-section" style={{ marginTop: 20 }}>
+      <div className="cf-actions" style={{ marginBottom: 12 }}>
+        <div className="detail-section-title" style={{ fontSize: 13 }}>DOT Roadside Inspections</div>
+        <button className="btn-primary" style={{ fontSize: 12, padding: '6px 14px' }} onClick={() => setShowForm(v => !v)}>
+          + Log Inspection
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="assign-form">
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div className="cf-row" style={{ flex: 1 }}>
+              <label className="cf-label">Date</label>
+              <input type="date" className="cf-input" value={form.inspection_date}
+                onChange={e => setForm(f => ({ ...f, inspection_date: e.target.value }))} />
+            </div>
+            <div className="cf-row" style={{ flex: 2 }}>
+              <label className="cf-label">Result</label>
+              <select className="cf-input" value={form.result}
+                onChange={e => setForm(f => ({ ...f, result: e.target.value }))}>
+                {DOT_RESULTS.map(r => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {form.result !== 'clean' && (
+            <div className="cf-row">
+              <label className="cf-label">Violations / Description</label>
+              <input className="cf-input" placeholder="e.g. Brake adjustment out of service, tire tread below minimum"
+                value={form.violations} onChange={e => setForm(f => ({ ...f, violations: e.target.value }))} />
+            </div>
+          )}
+          <div className="cf-row">
+            <label className="cf-label">Notes</label>
+            <input className="cf-input" placeholder="Optional internal notes"
+              value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+          </div>
+          <div className="cf-actions">
+            <span className="cf-topics-count" style={{ color: selectedResult?.color }}>
+              {selectedResult?.pts > 0 ? `+${selectedResult.pts}` : selectedResult?.pts} pts
+              {selectedResult?.pts > 0 ? ' awarded to driver' : selectedResult?.pts < 0 ? ' deducted from driver' : ' — no points change'}
+            </span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-link" onClick={() => setShowForm(false)}>Cancel</button>
+              <button className="btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Log Inspection'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {inspections.length === 0 && !showForm && (
+        <p className="empty-state">No DOT inspections logged yet.</p>
+      )}
+
+      {inspections.map(ins => {
+        const res = DOT_RESULTS.find(r => r.value === ins.result)
+        return (
+          <div key={ins.id} className="assign-row">
+            <div className="assign-row-info">
+              <div className="assign-row-title" style={{ color: res?.color }}>
+                {res?.label ?? ins.result}
+              </div>
+              {ins.violations && <div className="assign-row-reason">"{ins.violations}"</div>}
+              <div className="assign-row-meta">
+                {new Date(ins.inspection_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                {ins.notes && ` · ${ins.notes}`}
+              </div>
+            </div>
+            <span className="assign-badge" style={{
+              background: (res?.pts ?? 0) > 0 ? 'rgba(34,197,94,.15)' : (res?.pts ?? 0) < 0 ? 'rgba(239,68,68,.15)' : 'var(--bg-3)',
+              color: res?.color,
+            }}>
+              {ins.points_change > 0 ? `+${ins.points_change}` : ins.points_change} pts
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function DriverDetail({ selected, sd, dStats, adminDriver, onBack }) {
   const [assignments, setAssignments] = useState([])
   const [modules, setModules]         = useState([])
@@ -155,6 +303,9 @@ function DriverDetail({ selected, sd, dStats, adminDriver, onBack }) {
           )}
         </div>
       </div>
+
+      {/* DOT Roadside Inspections */}
+      <DOTSection driverId={sd?.id} adminDriver={adminDriver} />
 
       {/* Training Assignments */}
       <div className="detail-section" style={{ marginTop: 20 }}>

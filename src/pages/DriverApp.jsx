@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import Dashboard from './driver/Dashboard'
 import PreTrip from './driver/PreTrip'
 import Training from './driver/Training'
-import Documents from './driver/Documents'
+import Documents from './driver/Docs'
 import Leaderboard from './driver/Leaderboard'
 
 const NAV = [
