@@ -37,6 +37,18 @@ export function AuthProvider({ children }) {
       .single()
 
     if (existing) {
+      // Sync truck/trailer ClickUp IDs if not yet stored (runs once after deploy)
+      if (!existing.truck_clickup_id) {
+        const cd = await findDriverByEmail(user.email)
+        if (cd) {
+          const updates = {
+            truck_clickup_id:   cd.truckTaskId   ?? null,
+            trailer_clickup_id: cd.trailerTaskId ?? null,
+          }
+          await supabase.from('drivers').update(updates).eq('id', existing.id)
+          Object.assign(existing, updates)
+        }
+      }
       setDriver(existing)
       setLoading(false)
       return
@@ -54,12 +66,14 @@ export function AuthProvider({ children }) {
     const { data: newDriver, error } = await supabase
       .from('drivers')
       .insert({
-        user_id:         user.id,
-        company_id:      clickupDriver.company,
-        clickup_task_id: clickupDriver.id,
-        name:            clickupDriver.name,
-        email:           user.email,
-        is_admin:        false,
+        user_id:            user.id,
+        company_id:         clickupDriver.company,
+        clickup_task_id:    clickupDriver.id,
+        name:               clickupDriver.name,
+        email:              user.email,
+        is_admin:           false,
+        truck_clickup_id:   clickupDriver.truckTaskId   ?? null,
+        trailer_clickup_id: clickupDriver.trailerTaskId ?? null,
       })
       .select()
       .single()

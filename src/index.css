@@ -2140,3 +2140,17 @@ details[open] .points-ref-toggle-hint { display: none; }
   margin-left: 6px;
   vertical-align: middle;
 }
+
+/* --- Doc reassign inline row --------------------------------- */
+.doc-reassign-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.doc-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}

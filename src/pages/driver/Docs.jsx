@@ -38,13 +38,20 @@ export default function Docs() {
   }, [driver])
 
   async function load() {
-    const { data } = await supabase
-      .from('fleet_documents')
-      .select('*')
-      .or(`fleet.eq.all,fleet.eq.${driver.company_id}`)
-      .order('category')
-      .order('name')
-    setDocs(data ?? [])
+    // Vehicle-specific docs (assigned to this driver, their truck, or their trailer)
+    const vehicleIds = [driver.id]
+    if (driver.truck_clickup_id)    vehicleIds.push(driver.truck_clickup_id)
+    if (driver.trailer_clickup_id)  vehicleIds.push(driver.trailer_clickup_id)
+
+    const [{ data: vehicleDocs }, { data: fleetDocs }] = await Promise.all([
+      supabase.from('fleet_documents').select('*').in('vehicle_id', vehicleIds),
+      supabase.from('fleet_documents').select('*').is('vehicle_id', null)
+        .in('fleet', ['all', driver.company_id]),
+    ])
+
+    const merged = [...(vehicleDocs ?? []), ...(fleetDocs ?? [])]
+    merged.sort((a, b) => (a.category ?? '').localeCompare(b.category ?? '') || a.name.localeCompare(b.name))
+    setDocs(merged)
     setLoading(false)
   }
 

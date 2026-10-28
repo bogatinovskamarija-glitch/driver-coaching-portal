@@ -42,6 +42,8 @@ export default function AdminDocuments() {
   const [form, setForm] = useState({ name: '', description: '', assignTo: 'all', category: 'general' })
   const [file, setFile]         = useState(null)
   const [filter, setFilter]     = useState('all')
+  const [editId, setEditId]     = useState(null)   // doc id being reassigned
+  const [editAssignTo, setEditAssignTo] = useState('all')
   const fileRef = useRef()
 
   useEffect(() => { load() }, [])
@@ -103,6 +105,29 @@ export default function AdminDocuments() {
     await supabase.storage.from('fleet-documents').remove([doc.file_path])
     await supabase.from('fleet_documents').delete().eq('id', doc.id)
     await load()
+  }
+
+  async function saveReassign(doc) {
+    const { fleet, vehicle_id, vehicle_name } = parseAssignTo(editAssignTo)
+    await supabase.from('fleet_documents').update({ fleet, vehicle_id, vehicle_name }).eq('id', doc.id)
+    setEditId(null)
+    await load()
+  }
+
+  function startEdit(doc) {
+    // Reconstruct the assignTo value from stored data
+    let assignTo = 'all'
+    if (doc.vehicle_id && doc.vehicle_name) {
+      const type = doc.vehicle_name.includes('👤') || doc.vehicle_name.match(/\(.*\)$/)
+        ? 'driver' : doc.vehicle_name.includes('🔗') ? 'trailer' : 'truck'
+      assignTo = `${type}:${doc.vehicle_id}:${doc.vehicle_name}`
+    } else if (doc.fleet === 'carat') {
+      assignTo = 'fleet:carat'
+    } else if (doc.fleet === 'pft') {
+      assignTo = 'fleet:pft'
+    }
+    setEditAssignTo(assignTo)
+    setEditId(doc.id)
   }
 
   async function openDoc(doc) {
@@ -242,8 +267,57 @@ export default function AdminDocuments() {
                 </div>
               </div>
               <div className="doc-actions">
-                <button className="btn-link" style={{ fontSize: 12 }} onClick={() => openDoc(doc)}>View ↗</button>
-                <button className="maint-done-btn" style={{ fontSize: 11 }} onClick={() => deleteDoc(doc)}>Delete</button>
+                {editId === doc.id ? (
+                  <div className="doc-reassign-row">
+                    <select
+                      className="cf-input"
+                      style={{ fontSize: 11, padding: '3px 6px', minWidth: 180 }}
+                      value={editAssignTo}
+                      onChange={e => setEditAssignTo(e.target.value)}
+                    >
+                      <optgroup label="Fleet-wide">
+                        <option value="all">All drivers</option>
+                        <option value="fleet:carat">◆ Carat Fleet only</option>
+                        <option value="fleet:pft">⬡ PFT Fleet only</option>
+                      </optgroup>
+                      {equipment.trucks.length > 0 && (
+                        <optgroup label="Specific Truck">
+                          {equipment.trucks.map(t => (
+                            <option key={t.id} value={`truck:${t.id}:${t.name} (${t.company === 'carat' ? 'Carat' : 'PFT'})`}>
+                              🚛 {t.name} ({t.company === 'carat' ? 'Carat' : 'PFT'})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {equipment.trailers.length > 0 && (
+                        <optgroup label="Specific Trailer">
+                          {equipment.trailers.map(t => (
+                            <option key={t.id} value={`trailer:${t.id}:${t.name}`}>
+                              🔗 {t.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {drivers.length > 0 && (
+                        <optgroup label="Specific Driver">
+                          {drivers.map(d => (
+                            <option key={d.id} value={`driver:${d.id}:${d.name} (${d.company_id === 'carat' ? 'Carat' : 'PFT'})`}>
+                              👤 {d.name} ({d.company_id === 'carat' ? 'Carat' : 'PFT'})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                    <button className="btn-primary" style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => saveReassign(doc)}>Save</button>
+                    <button className="btn-link" style={{ fontSize: 11 }} onClick={() => setEditId(null)}>Cancel</button>
+                  </div>
+                ) : (
+                  <>
+                    <button className="btn-link" style={{ fontSize: 12 }} onClick={() => openDoc(doc)}>View ↗</button>
+                    <button className="btn-link" style={{ fontSize: 11 }} onClick={() => startEdit(doc)}>Reassign</button>
+                    <button className="maint-done-btn" style={{ fontSize: 11 }} onClick={() => deleteDoc(doc)}>Delete</button>
+                  </>
+                )}
               </div>
             </div>
           ))}
