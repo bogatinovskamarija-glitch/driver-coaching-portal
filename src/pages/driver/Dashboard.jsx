@@ -86,14 +86,14 @@ export default function Dashboard({ onNav }) {
     // Count drivers in same company with more points
     const { data } = await supabase
       .from('drivers')
-      .select('id, driver_stats(total_points)')
+      .select('id, driver_stats(quarter_points)')
       .eq('company_id', driver.company_id)
       .eq('is_active', true)
       .eq('is_admin', false)
 
     if (!data) return
-    const myPts = stats.total_points ?? 0
-    const above = data.filter(d => (d.driver_stats?.[0]?.total_points ?? 0) > myPts).length
+    const myPts = stats.quarter_points ?? 0
+    const above = data.filter(d => (d.driver_stats?.[0]?.quarter_points ?? 0) > myPts).length
     setRank(above + 1)
   }
 

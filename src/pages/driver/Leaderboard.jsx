@@ -33,7 +33,7 @@ export default function Leaderboard() {
   async function load() {
     const { data } = await supabase
       .from('drivers')
-      .select('id, name, company_id, driver_stats(total_points, current_streak, modules_completed)')
+      .select('id, name, company_id, driver_stats(total_points, quarter_points, current_streak, modules_completed)')
       .eq('is_active', true)
       .eq('is_admin', false)
       .order('name')
