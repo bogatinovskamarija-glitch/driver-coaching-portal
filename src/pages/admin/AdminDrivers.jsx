@@ -168,11 +168,13 @@ export default function AdminDrivers() {
                     <span className={d.cdlDaysLeft !== null && d.cdlDaysLeft < 30 ? 'text-red' : d.cdlDaysLeft !== null && d.cdlDaysLeft < 60 ? 'text-amber' : ''}>
                       {d.cdlDaysLeft !== null ? `${d.cdlDaysLeft}d` : '—'}
                     </span>
+                    {d.cdlExpiry?.display && <div style={{ fontSize: 10, color: 'var(--text-3)' }}>{d.cdlExpiry.display}</div>}
                   </td>
                   <td>
                     <span className={d.medDaysLeft !== null && d.medDaysLeft < 30 ? 'text-red' : d.medDaysLeft !== null && d.medDaysLeft < 60 ? 'text-amber' : ''}>
                       {d.medDaysLeft !== null ? `${d.medDaysLeft}d` : '—'}
                     </span>
+                    {d.medCert?.display && <div style={{ fontSize: 10, color: 'var(--text-3)' }}>{d.medCert.display}</div>}
                   </td>
                   <td>{dStats?.total_points?.toLocaleString() ?? '—'}</td>
                   <td>{dStats ? `🔥 ${dStats.current_streak ?? 0}` : '—'}</td>
