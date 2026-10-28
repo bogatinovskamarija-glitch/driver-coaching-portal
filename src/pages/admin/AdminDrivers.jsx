@@ -38,8 +38,11 @@ const DOT_RESULTS = [
   { value: 'clean',    label: 'Clean — No Violations',    pts: 75,   color: '#22c55e' },
   { value: 'minor',   label: 'Minor Violations',          pts: 0,    color: '#f59e0b' },
   { value: 'major',   label: 'Major Violations',          pts: -50,  color: '#ef4444' },
-  { value: 'critical',label: 'Critical / Out of Service', pts: -100, color: '#ef4444' },
+  { value: 'critical',label: 'Critical Violations',       pts: -100, color: '#dc2626' },
+  { value: 'oos',     label: 'Out of Service (OOS)',      pts: -150, color: '#7c2d12' },
 ]
+
+const OVERDUE_PENALTY = -25
 
 function DOTSection({ driverId, adminDriver }) {
   const [inspections, setInspections] = useState([])
@@ -235,6 +238,26 @@ function DriverDetail({ selected, sd, dStats, adminDriver, onBack }) {
     await loadAssignments(sd.id)
   }
 
+  async function applyOverduePenalty(a) {
+    const title = a.coaching_modules?.title ?? 'module'
+    if (!window.confirm(`Deduct ${OVERDUE_PENALTY} pts for overdue training: "${title}"?`)) return
+    await supabase.from('training_assignments').update({ status: 'overdue' }).eq('id', a.id)
+    await supabase.from('points_ledger').insert({
+      driver_id: sd.id,
+      points:    OVERDUE_PENALTY,
+      reason:    `Overdue training penalty: ${title}`,
+      category:  'training_penalty',
+    })
+    const { data: st } = await supabase.from('driver_stats').select('total_points,quarter_points').eq('driver_id', sd.id).single()
+    if (st) {
+      await supabase.from('driver_stats').update({
+        total_points:   Math.max(0, (st.total_points ?? 0) + OVERDUE_PENALTY),
+        quarter_points: Math.max(0, (st.quarter_points ?? 0) + OVERDUE_PENALTY),
+      }).eq('driver_id', sd.id)
+    }
+    await loadAssignments(sd.id)
+  }
+
   const pending   = assignments.filter(a => a.status !== 'completed')
   const completed = assignments.filter(a => a.status === 'completed')
 
@@ -258,9 +281,9 @@ function DriverDetail({ selected, sd, dStats, adminDriver, onBack }) {
           <div className="detail-section-title">Performance</div>
           {dStats ? (
             <div className="detail-stats">
-              <div className="detail-stat"><span>{dStats.total_points?.toLocaleString() ?? 0}</span><small>Total Points</small></div>
+              <div className="detail-stat"><span>{(dStats.quarter_points ?? 0).toLocaleString()}</span><small>Qtr Points</small></div>
+              <div className="detail-stat"><span>{dStats.total_points?.toLocaleString() ?? 0}</span><small>All-Time Pts</small></div>
               <div className="detail-stat"><span>🔥 {dStats.current_streak ?? 0}</span><small>Streak</small></div>
-              <div className="detail-stat"><span>{dStats.longest_streak ?? 0}</span><small>Best Streak</small></div>
               <div className="detail-stat"><span>{dStats.modules_completed ?? 0}</span><small>Modules Done</small></div>
             </div>
           ) : (
@@ -268,13 +291,16 @@ function DriverDetail({ selected, sd, dStats, adminDriver, onBack }) {
           )}
           {dStats && (
             <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4 }}>Progress to $100 reward</div>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4 }}>
+                This quarter — progress to $500 reward
+              </div>
               <div className="reward-progress-track" style={{ height: 6 }}>
                 <div className="reward-progress-fill"
-                  style={{ width: `${Math.min(100, (dStats.total_points ?? 0) / 10)}%` }} />
+                  style={{ width: `${Math.min(100, ((dStats.quarter_points ?? 0) / 1000) * 100)}%` }} />
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 3 }}>
-                {(dStats.total_points ?? 0).toLocaleString()} / 1,000 pts ({Math.min(100, Math.round((dStats.total_points ?? 0) / 10))}%)
+                {(dStats.quarter_points ?? 0).toLocaleString()} / 1,000 pts this quarter
+                {(dStats.quarter_points ?? 0) >= 1000 && ' 🎉 Reward earned!'}
               </div>
             </div>
           )}
@@ -384,6 +410,16 @@ function DriverDetail({ selected, sd, dStats, adminDriver, onBack }) {
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <AssignmentBadge status={a.status} due={a.due_date} />
+                    {isOverdue && a.status === 'pending' && (
+                      <button
+                        className="assign-badge overdue"
+                        style={{ cursor: 'pointer', border: 'none', fontSize: 10, padding: '3px 8px' }}
+                        onClick={() => applyOverduePenalty(a)}
+                        title="Apply overdue penalty (-25 pts)"
+                      >
+                        −25 pts
+                      </button>
+                    )}
                     <button className="maint-done-btn" style={{ fontSize: 11 }} onClick={() => deleteAssignment(a.id)}>✕</button>
                   </div>
                 </div>
