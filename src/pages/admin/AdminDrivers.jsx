@@ -453,8 +453,42 @@ export default function AdminDrivers() {
   const [filter, setFilter]           = useState('all')
   const [selected, setSelected]       = useState(null)
   const [stats, setStats]             = useState({})
+  const [showCreate, setShowCreate]   = useState(false)
+  const [createForm, setCreateForm]   = useState({ email: '', password: '', confirm: '' })
+  const [creating, setCreating]       = useState(false)
+  const [createMsg, setCreateMsg]     = useState(null) // { type: 'success'|'error', text: '' }
 
   useEffect(() => { load() }, [])
+
+  async function createAccount() {
+    const { email, password, confirm } = createForm
+    if (!email.trim() || !password) { setCreateMsg({ type: 'error', text: 'Email and password are required.' }); return }
+    if (password !== confirm) { setCreateMsg({ type: 'error', text: 'Passwords do not match.' }); return }
+    if (password.length < 6) { setCreateMsg({ type: 'error', text: 'Password must be at least 6 characters.' }); return }
+    setCreating(true)
+    setCreateMsg(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-driver-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setCreateMsg({ type: 'error', text: json.error ?? 'Failed to create account.' })
+      } else {
+        setCreateMsg({ type: 'success', text: `Account created for ${json.email}` })
+        setCreateForm({ email: '', password: '', confirm: '' })
+      }
+    } catch (e) {
+      setCreateMsg({ type: 'error', text: 'Network error. Check that the edge function is deployed.' })
+    }
+    setCreating(false)
+  }
 
   async function load() {
     const [clickupList, { data: dbDrivers }, { data: dbStats }] = await Promise.all([
@@ -508,7 +542,57 @@ export default function AdminDrivers() {
             </button>
           ))}
         </div>
+        <button className="btn-primary" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}
+          onClick={() => { setShowCreate(v => !v); setCreateMsg(null) }}>
+          + Create Account
+        </button>
       </div>
+
+      {showCreate && (
+        <div className="assign-form" style={{ marginBottom: 16 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Create Driver Login</div>
+          <div className="cf-row">
+            <label className="cf-label">Email *</label>
+            <input className="cf-input" type="email" placeholder="driver@example.com"
+              value={createForm.email}
+              onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))} />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div className="cf-row" style={{ flex: 1 }}>
+              <label className="cf-label">Password *</label>
+              <input className="cf-input" type="password" placeholder="Min 6 characters"
+                value={createForm.password}
+                onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))} />
+            </div>
+            <div className="cf-row" style={{ flex: 1 }}>
+              <label className="cf-label">Confirm Password *</label>
+              <input className="cf-input" type="password" placeholder="Repeat password"
+                value={createForm.confirm}
+                onChange={e => setCreateForm(f => ({ ...f, confirm: e.target.value }))} />
+            </div>
+          </div>
+          {createMsg && (
+            <div style={{
+              padding: '8px 12px', borderRadius: 6, fontSize: 12, marginBottom: 8,
+              background: createMsg.type === 'success' ? 'rgba(34,197,94,.15)' : 'rgba(239,68,68,.15)',
+              color: createMsg.type === 'success' ? '#22c55e' : '#ef4444',
+              fontWeight: 500,
+            }}>
+              {createMsg.type === 'success' ? '✅ ' : '⚠️ '}{createMsg.text}
+            </div>
+          )}
+          <div className="cf-actions">
+            <span className="cf-topics-count">Driver can log in to drivers.caratexpedited.com immediately</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-link" onClick={() => { setShowCreate(false); setCreateMsg(null) }}>Cancel</button>
+              <button className="btn-primary" onClick={createAccount}
+                disabled={!createForm.email || !createForm.password || creating}>
+                {creating ? 'Creating…' : 'Create Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="admin-table-wrap">
         <table className="admin-table">
