@@ -1,19 +1,268 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { fetchAllDrivers } from '../../lib/clickup'
+import { useAuth } from '../../context/AuthContext'
 
-export default function AdminDrivers() {
-  const [drivers, setDrivers]     = useState([])
-  const [supaDrivers, setSupaDrivers] = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [search, setSearch]       = useState('')
-  const [filter, setFilter]       = useState('all')
-  const [selected, setSelected]   = useState(null)
-  const [stats, setStats]         = useState({})
+function daysLeft(dueDate) {
+  if (!dueDate) return null
+  const diff = new Date(dueDate + 'T12:00:00') - new Date()
+  return Math.ceil(diff / (1000 * 60 * 60 * 24))
+}
+
+function AssignmentBadge({ status, due }) {
+  const dl = daysLeft(due)
+  const isOverdue = dl !== null && dl < 0
+  if (status === 'completed') return <span className="assign-badge done">✓ Done</span>
+  if (isOverdue) return <span className="assign-badge overdue">Overdue</span>
+  if (dl !== null && dl <= 3) return <span className="assign-badge urgent">Due in {dl}d</span>
+  if (dl !== null) return <span className="assign-badge pending">{dl}d left</span>
+  return <span className="assign-badge pending">Pending</span>
+}
+
+function DriverDetail({ selected, sd, dStats, adminDriver, onBack }) {
+  const [assignments, setAssignments] = useState([])
+  const [modules, setModules]         = useState([])
+  const [showForm, setShowForm]       = useState(false)
+  const [form, setForm] = useState({ module_id: '', reason: '', due_date: '', points_bonus: 25 })
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    load()
-  }, [])
+    if (sd?.id) loadAssignments(sd.id)
+    loadModules()
+  }, [sd])
+
+  async function loadAssignments(driverId) {
+    const { data } = await supabase
+      .from('training_assignments')
+      .select('*, coaching_modules(title, category, points_value, duration_minutes)')
+      .eq('driver_id', driverId)
+      .order('created_at', { ascending: false })
+    setAssignments(data ?? [])
+  }
+
+  async function loadModules() {
+    const { data } = await supabase
+      .from('coaching_modules')
+      .select('id, title, category, points_value')
+      .eq('is_active', true)
+      .order('sort_order')
+    setModules(data ?? [])
+  }
+
+  async function saveAssignment() {
+    if (!form.module_id || !sd?.id) return
+    setSaving(true)
+    await supabase.from('training_assignments').insert({
+      driver_id:    sd.id,
+      module_id:    form.module_id,
+      assigned_by:  adminDriver?.id,
+      reason:       form.reason || null,
+      due_date:     form.due_date || null,
+      points_bonus: Number(form.points_bonus) || 25,
+      status:       'pending',
+    })
+    setForm({ module_id: '', reason: '', due_date: '', points_bonus: 25 })
+    setShowForm(false)
+    await loadAssignments(sd.id)
+    setSaving(false)
+  }
+
+  async function deleteAssignment(id) {
+    await supabase.from('training_assignments').delete().eq('id', id)
+    await loadAssignments(sd.id)
+  }
+
+  const pending   = assignments.filter(a => a.status !== 'completed')
+  const completed = assignments.filter(a => a.status === 'completed')
+
+  return (
+    <div className="admin-driver-detail">
+      <button className="back-btn" onClick={onBack}>← Back to Drivers</button>
+
+      <div className="driver-detail-header">
+        <div className="driver-detail-avatar">{selected.name?.charAt(0)?.toUpperCase() ?? '?'}</div>
+        <div>
+          <h2>{selected.name}</h2>
+          <div className="driver-detail-meta">
+            {selected.email} · {selected.company === 'carat' ? '◆ Carat Expedited' : '⬡ Pro Freight'}
+          </div>
+        </div>
+      </div>
+
+      <div className="detail-grid">
+        {/* Performance */}
+        <div className="detail-section">
+          <div className="detail-section-title">Performance</div>
+          {dStats ? (
+            <div className="detail-stats">
+              <div className="detail-stat"><span>{dStats.total_points?.toLocaleString() ?? 0}</span><small>Total Points</small></div>
+              <div className="detail-stat"><span>🔥 {dStats.current_streak ?? 0}</span><small>Streak</small></div>
+              <div className="detail-stat"><span>{dStats.longest_streak ?? 0}</span><small>Best Streak</small></div>
+              <div className="detail-stat"><span>{dStats.modules_completed ?? 0}</span><small>Modules Done</small></div>
+            </div>
+          ) : (
+            <p className="empty-state">Driver hasn't logged in yet.</p>
+          )}
+          {dStats && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4 }}>Progress to $100 reward</div>
+              <div className="reward-progress-track" style={{ height: 6 }}>
+                <div className="reward-progress-fill"
+                  style={{ width: `${Math.min(100, (dStats.total_points ?? 0) / 10)}%` }} />
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 3 }}>
+                {(dStats.total_points ?? 0).toLocaleString()} / 1,000 pts ({Math.min(100, Math.round((dStats.total_points ?? 0) / 10))}%)
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Credentials */}
+        <div className="detail-section">
+          <div className="detail-section-title">Credentials</div>
+          <div className="detail-creds">
+            {[
+              { label: 'CDL', days: selected.cdlDaysLeft, date: selected.cdlExpiry?.display },
+              { label: 'Med Cert', days: selected.medDaysLeft, date: selected.medCert?.display },
+            ].map(({ label, days, date }) => (
+              <div key={label} className="detail-cred-row">
+                <span>{label}</span>
+                <span>
+                  <span className={days !== null && days < 30 ? 'text-red' : days !== null && days < 60 ? 'text-amber' : 'text-green'}>
+                    {days !== null ? `${days}d` : '—'}
+                  </span>
+                  {date && <span style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: 4 }}>{date}</span>}
+                </span>
+              </div>
+            ))}
+            <div className="detail-cred-row"><span>MVR</span><span>{selected.mvr ? '✅' : '—'}</span></div>
+            <div className="detail-cred-row"><span>PSP</span><span>{selected.psp ? '✅' : '—'}</span></div>
+          </div>
+          {selected.driveFolder && (
+            <a className="driver-folder-btn" href={selected.driveFolder} target="_blank" rel="noopener noreferrer" style={{ marginTop: 12, display: 'inline-block' }}>
+              📁 Drive Folder
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* Training Assignments */}
+      <div className="detail-section" style={{ marginTop: 20 }}>
+        <div className="cf-actions" style={{ marginBottom: 12 }}>
+          <div className="detail-section-title" style={{ fontSize: 13 }}>Training Assignments</div>
+          <button className="btn-primary" style={{ fontSize: 12, padding: '6px 14px' }} onClick={() => setShowForm(v => !v)}>
+            + Assign Module
+          </button>
+        </div>
+
+        {showForm && (
+          <div className="assign-form">
+            <div className="cf-row">
+              <label className="cf-label">Module</label>
+              <select className="cf-input"
+                value={form.module_id}
+                onChange={e => setForm(f => ({ ...f, module_id: e.target.value }))}>
+                <option value="">Select a module…</option>
+                {modules.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.title} ({m.points_value} pts)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="cf-row">
+              <label className="cf-label">Reason (shown to driver)</label>
+              <input className="cf-input" placeholder="e.g. Speeding event on 10/28 — review safe following distance"
+                value={form.reason}
+                onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div className="cf-row" style={{ flex: 1 }}>
+                <label className="cf-label">Due Date</label>
+                <input type="date" className="cf-input"
+                  value={form.due_date}
+                  onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />
+              </div>
+              <div className="cf-row" style={{ flex: 1 }}>
+                <label className="cf-label">Bonus Points</label>
+                <input type="number" className="cf-input" min={0} max={200}
+                  value={form.points_bonus}
+                  onChange={e => setForm(f => ({ ...f, points_bonus: e.target.value }))} />
+              </div>
+            </div>
+            <div className="cf-actions">
+              <span className="cf-topics-count">Driver earns base pts + {form.points_bonus || 25} bonus for on-time completion</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn-link" onClick={() => setShowForm(false)}>Cancel</button>
+                <button className="btn-primary" onClick={saveAssignment} disabled={!form.module_id || saving}>
+                  {saving ? 'Assigning…' : 'Assign'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {pending.length === 0 && completed.length === 0 && !showForm && (
+          <p className="empty-state">No training assignments yet. Use "+ Assign Module" to give this driver a specific video + quiz.</p>
+        )}
+
+        {pending.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            {pending.map(a => {
+              const dl = daysLeft(a.due_date)
+              const isOverdue = dl !== null && dl < 0
+              return (
+                <div key={a.id} className={`assign-row ${isOverdue ? 'assign-overdue' : ''}`}>
+                  <div className="assign-row-info">
+                    <div className="assign-row-title">{a.coaching_modules?.title ?? 'Unknown module'}</div>
+                    {a.reason && <div className="assign-row-reason">"{a.reason}"</div>}
+                    <div className="assign-row-meta">
+                      +{a.coaching_modules?.points_value ?? 0} pts base · +{a.points_bonus} bonus
+                      {a.due_date && ` · Due ${new Date(a.due_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <AssignmentBadge status={a.status} due={a.due_date} />
+                    <button className="maint-done-btn" style={{ fontSize: 11 }} onClick={() => deleteAssignment(a.id)}>✕</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {completed.length > 0 && (
+          <details style={{ marginTop: 8 }}>
+            <summary style={{ fontSize: 12, color: 'var(--text-2)', cursor: 'pointer' }}>
+              {completed.length} completed assignment{completed.length !== 1 ? 's' : ''}
+            </summary>
+            {completed.map(a => (
+              <div key={a.id} className="assign-row" style={{ opacity: .6 }}>
+                <div className="assign-row-info">
+                  <div className="assign-row-title">{a.coaching_modules?.title}</div>
+                  {a.reason && <div className="assign-row-reason">"{a.reason}"</div>}
+                </div>
+                <AssignmentBadge status="completed" />
+              </div>
+            ))}
+          </details>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function AdminDrivers() {
+  const { driver: adminDriver } = useAuth()
+  const [drivers, setDrivers]         = useState([])
+  const [supaDrivers, setSupaDrivers] = useState([])
+  const [loading, setLoading]         = useState(true)
+  const [search, setSearch]           = useState('')
+  const [filter, setFilter]           = useState('all')
+  const [selected, setSelected]       = useState(null)
+  const [stats, setStats]             = useState({})
+
+  useEffect(() => { load() }, [])
 
   async function load() {
     const [clickupList, { data: dbDrivers }, { data: dbStats }] = await Promise.all([
@@ -21,7 +270,6 @@ export default function AdminDrivers() {
       supabase.from('drivers').select('*').eq('is_active', true),
       supabase.from('driver_stats').select('*'),
     ])
-
     const statsMap = {}
     for (const s of (dbStats ?? [])) statsMap[s.driver_id] = s
     setStats(statsMap)
@@ -33,8 +281,7 @@ export default function AdminDrivers() {
   const filtered = drivers.filter(d => {
     const matchSearch = !search || d.name?.toLowerCase().includes(search.toLowerCase())
       || d.email?.toLowerCase().includes(search.toLowerCase())
-    const matchFilter = filter === 'all' || d.company === filter
-    return matchSearch && matchFilter
+    return matchSearch && (filter === 'all' || d.company === filter)
   })
 
   function matchSupa(d) {
@@ -47,92 +294,24 @@ export default function AdminDrivers() {
     const sd     = matchSupa(selected)
     const dStats = sd ? stats[sd.id] : null
     return (
-      <div className="admin-driver-detail">
-        <button className="back-btn" onClick={() => setSelected(null)}>← Back to Drivers</button>
-
-        <div className="driver-detail-header">
-          <div className="driver-detail-avatar">
-            {selected.name?.charAt(0)?.toUpperCase() ?? '?'}
-          </div>
-          <div>
-            <h2>{selected.name}</h2>
-            <div className="driver-detail-meta">
-              {selected.email} · {selected.company === 'carat' ? '◆ Carat Expedited' : '⬡ Pro Freight'}
-            </div>
-          </div>
-        </div>
-
-        <div className="detail-grid">
-          {/* Gamification stats */}
-          <div className="detail-section">
-            <div className="detail-section-title">Performance</div>
-            {dStats ? (
-              <div className="detail-stats">
-                <div className="detail-stat"><span>{dStats.total_points?.toLocaleString() ?? 0}</span><small>Total Points</small></div>
-                <div className="detail-stat"><span>🔥 {dStats.current_streak ?? 0}</span><small>Current Streak</small></div>
-                <div className="detail-stat"><span>{dStats.longest_streak ?? 0}</span><small>Best Streak</small></div>
-                <div className="detail-stat"><span>{dStats.modules_completed ?? 0}</span><small>Modules Done</small></div>
-              </div>
-            ) : (
-              <p className="empty-state">Driver hasn't logged in yet.</p>
-            )}
-          </div>
-
-          {/* Credentials */}
-          <div className="detail-section">
-            <div className="detail-section-title">Credentials</div>
-            <div className="detail-creds">
-              <div className="detail-cred-row">
-                <span>CDL</span>
-                <span className={selected.cdlDaysLeft !== null && selected.cdlDaysLeft < 30 ? 'text-red' : selected.cdlDaysLeft !== null && selected.cdlDaysLeft < 60 ? 'text-amber' : 'text-green'}>
-                  {selected.cdlDaysLeft !== null ? `${selected.cdlDaysLeft}d remaining` : '—'}
-                </span>
-              </div>
-              <div className="detail-cred-row">
-                <span>Med Cert</span>
-                <span className={selected.medDaysLeft !== null && selected.medDaysLeft < 30 ? 'text-red' : selected.medDaysLeft !== null && selected.medDaysLeft < 60 ? 'text-amber' : 'text-green'}>
-                  {selected.medDaysLeft !== null ? `${selected.medDaysLeft}d remaining` : '—'}
-                </span>
-              </div>
-              <div className="detail-cred-row">
-                <span>MVR</span>
-                <span>{selected.mvr ? '✅ On file' : '—'}</span>
-              </div>
-              <div className="detail-cred-row">
-                <span>PSP</span>
-                <span>{selected.psp ? '✅ On file' : '—'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {selected.driveFolder && (
-          <a className="driver-folder-btn" href={selected.driveFolder} target="_blank" rel="noopener noreferrer">
-            📁 Open Driver Folder in Drive
-          </a>
-        )}
-      </div>
+      <DriverDetail
+        selected={selected}
+        sd={sd}
+        dStats={dStats}
+        adminDriver={adminDriver}
+        onBack={() => setSelected(null)}
+      />
     )
   }
 
   return (
     <div className="admin-drivers">
-      {/* Filters */}
       <div className="admin-drivers-toolbar">
-        <input
-          className="admin-search"
-          type="text"
-          placeholder="Search drivers…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <input className="admin-search" type="text" placeholder="Search drivers…"
+          value={search} onChange={e => setSearch(e.target.value)} />
         <div className="admin-filter-row">
           {['all', 'carat', 'pft'].map(f => (
-            <button
-              key={f}
-              className={`filter-btn ${filter === f ? 'active' : ''}`}
-              onClick={() => setFilter(f)}
-            >
+            <button key={f} className={`filter-btn ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
               {f === 'all' ? 'All' : f === 'carat' ? '◆ Carat' : '⬡ PFT'}
             </button>
           ))}
@@ -143,13 +322,8 @@ export default function AdminDrivers() {
         <table className="admin-table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Company</th>
-              <th>CDL</th>
-              <th>Med Cert</th>
-              <th>Points</th>
-              <th>Streak</th>
-              <th>Portal</th>
+              <th>Name</th><th>Company</th><th>CDL</th><th>Med Cert</th>
+              <th>Points</th><th>Streak</th><th>Portal</th>
             </tr>
           </thead>
           <tbody>

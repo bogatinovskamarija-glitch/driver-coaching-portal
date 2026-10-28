@@ -103,7 +103,7 @@ function Quiz({ module, onComplete }) {
   )
 }
 
-function ModuleDetail({ module, completion, onBack, onComplete }) {
+function ModuleDetail({ module, completion, assignment, onBack, onComplete }) {
   const [phase, setPhase]   = useState('video') // 'video' | 'quiz'
   const [saving, setSaving] = useState(false)
   const { driver, stats, refreshDriver } = useAuth()
@@ -111,7 +111,7 @@ function ModuleDetail({ module, completion, onBack, onComplete }) {
   async function handleQuizDone(score) {
     setSaving(true)
     const passed = score >= 80
-    const pts    = passed ? module.points_value : Math.floor(module.points_value * 0.5)
+    let pts = passed ? module.points_value : Math.floor(module.points_value * 0.5)
 
     await supabase.from('module_completions').upsert({
       driver_id:    driver.id,
@@ -121,10 +121,29 @@ function ModuleDetail({ module, completion, onBack, onComplete }) {
       points_earned: pts,
     }, { onConflict: 'driver_id,module_id' })
 
+    // If this module was assigned, mark it complete and add bonus points
+    if (assignment && passed) {
+      const bonus = assignment.points_bonus ?? 0
+      pts += bonus
+      await supabase.from('training_assignments').update({
+        status:       'completed',
+        completed_at: new Date().toISOString(),
+      }).eq('id', assignment.id)
+      if (bonus > 0) {
+        await supabase.from('points_ledger').insert({
+          driver_id:  driver.id,
+          company_id: driver.company_id,
+          points:     bonus,
+          reason:     `Assignment bonus: ${module.title}`,
+          category:   'assignment_bonus',
+        })
+      }
+    }
+
     await supabase.from('points_ledger').insert({
       driver_id:  driver.id,
       company_id: driver.company_id,
-      points:     pts,
+      points:     module.points_value > 0 ? (passed ? module.points_value : Math.floor(module.points_value * 0.5)) : 0,
       reason:     `Completed module: ${module.title} (score: ${score}%)`,
       category:   'module',
     })
@@ -165,6 +184,14 @@ function ModuleDetail({ module, completion, onBack, onComplete }) {
       </div>
       <h2 className="module-detail-title">{module.title}</h2>
       <p className="module-detail-desc">{module.description}</p>
+
+      {assignment && (
+        <div className="assignment-banner">
+          📌 Assigned to you{assignment.reason ? ` — "${assignment.reason}"` : ''}
+          {assignment.due_date && ` · Due ${new Date(assignment.due_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+          {` · +${assignment.points_bonus} bonus pts on completion`}
+        </div>
+      )}
 
       {completion && (
         <div className="completion-banner">
@@ -210,27 +237,38 @@ function ModuleDetail({ module, completion, onBack, onComplete }) {
   )
 }
 
+function daysLeft(dueDate) {
+  if (!dueDate) return null
+  const diff = new Date(dueDate + 'T12:00:00') - new Date()
+  return Math.ceil(diff / (1000 * 60 * 60 * 24))
+}
+
 export default function Training() {
   const { driver } = useAuth()
-  const [modules, setModules]   = useState([])
-  const [completions, setCompletions] = useState({})
-  const [selected, setSelected] = useState(null)
-  const [result, setResult]     = useState(null)
-  const [loading, setLoading]   = useState(true)
+  const [modules, setModules]           = useState([])
+  const [completions, setCompletions]   = useState({})
+  const [assignments, setAssignments]   = useState([])
+  const [selected, setSelected]         = useState(null)
+  const [result, setResult]             = useState(null)
+  const [loading, setLoading]           = useState(true)
 
-  useEffect(() => {
-    load()
-  }, [driver])
+  useEffect(() => { load() }, [driver])
 
   async function load() {
-    const [{ data: mods }, { data: comps }] = await Promise.all([
+    const [{ data: mods }, { data: comps }, { data: assigns }] = await Promise.all([
       supabase.from('coaching_modules').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('module_completions').select('*').eq('driver_id', driver.id),
+      supabase.from('training_assignments')
+        .select('*, coaching_modules(id, title, category, points_value, duration_minutes)')
+        .eq('driver_id', driver.id)
+        .neq('status', 'completed')
+        .order('created_at', { ascending: false }),
     ])
     setModules(mods ?? [])
     const compMap = {}
     for (const c of (comps ?? [])) compMap[c.module_id] = c
     setCompletions(compMap)
+    setAssignments(assigns ?? [])
     setLoading(false)
   }
 
@@ -243,10 +281,12 @@ export default function Training() {
   if (loading) return <div className="page-loader">Loading modules…</div>
 
   if (selected) {
+    const assignment = assignments.find(a => a.module_id === selected.id) ?? null
     return (
       <ModuleDetail
         module={selected}
         completion={completions[selected.id] ?? null}
+        assignment={assignment}
         onBack={() => { setSelected(null); setResult(null) }}
         onComplete={handleComplete}
       />
@@ -255,6 +295,8 @@ export default function Training() {
 
   const done  = modules.filter(m => completions[m.id]?.quiz_passed)
   const total = modules.length
+
+  const pendingAssignments = assignments.filter(a => a.status !== 'completed')
 
   return (
     <div className="training">
@@ -273,6 +315,48 @@ export default function Training() {
           {result.score >= 80
             ? `✅ Passed! +${result.pts} pts earned`
             : `❌ Score: ${result.score}% — Try again to earn full points`}
+        </div>
+      )}
+
+      {/* Assigned to You */}
+      {pendingAssignments.length > 0 && (
+        <div className="assigned-section">
+          <div className="assigned-section-header">
+            <span>📌 Assigned to You</span>
+            <span className="assigned-count">{pendingAssignments.length}</span>
+          </div>
+          {pendingAssignments.map(a => {
+            const mod = a.coaching_modules
+            const dl  = daysLeft(a.due_date)
+            const isOverdue = dl !== null && dl < 0
+            const isUrgent  = dl !== null && dl >= 0 && dl <= 3
+            return (
+              <div
+                key={a.id}
+                className={`assigned-row ${isOverdue ? 'assigned-overdue' : isUrgent ? 'assigned-urgent' : ''}`}
+                onClick={() => {
+                  const fullMod = modules.find(m => m.id === mod?.id)
+                  if (fullMod) setSelected(fullMod)
+                }}
+              >
+                <div className="assigned-row-left">
+                  <div className="assigned-row-title">{mod?.title ?? 'Module'}</div>
+                  {a.reason && <div className="assigned-row-reason">"{a.reason}"</div>}
+                  <div className="assigned-row-meta">
+                    +{mod?.points_value ?? 0} pts base · +{a.points_bonus} bonus
+                    {a.due_date && ` · Due ${new Date(a.due_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                  </div>
+                </div>
+                <div className="assigned-row-badge">
+                  {isOverdue ? <span className="assign-badge overdue">Overdue</span>
+                    : isUrgent ? <span className="assign-badge urgent">Due in {dl}d</span>
+                    : dl !== null ? <span className="assign-badge pending">{dl}d left</span>
+                    : <span className="assign-badge pending">Pending</span>}
+                  <span style={{ marginLeft: 6 }}>→</span>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 

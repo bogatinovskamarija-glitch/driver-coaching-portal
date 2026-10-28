@@ -1817,3 +1817,102 @@ button { cursor: pointer; font: inherit; border: none; background: none; color: 
   border-bottom: 1px solid var(--border);
   margin-bottom: 12px;
 }
+
+/* ─── Training Assignments — admin driver detail ─────────── */
+.assign-form {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.assign-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+}
+.assign-row.assign-overdue { border-color: var(--red); background: rgba(239,68,68,.06); }
+.assign-row-info  { flex: 1; min-width: 0; }
+.assign-row-title { font-size: 13px; font-weight: 600; }
+.assign-row-reason { font-size: 11px; color: var(--text-2); margin-top: 2px; font-style: italic; }
+.assign-row-meta   { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.assign-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.assign-badge.done    { background: rgba(34,197,94,.15); color: var(--green); }
+.assign-badge.overdue { background: rgba(239,68,68,.15); color: var(--red); }
+.assign-badge.urgent  { background: rgba(245,158,11,.15); color: var(--amber); }
+.assign-badge.pending { background: var(--bg-3); color: var(--text-2); border: 1px solid var(--border); }
+
+/* ─── Assigned to You — driver Training page ─────────────── */
+.assigned-section {
+  background: var(--bg-2);
+  border: 1px solid var(--amber);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+.assigned-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--amber);
+  margin-bottom: 10px;
+}
+.assigned-count {
+  background: var(--amber);
+  color: #000;
+  border-radius: 20px;
+  padding: 1px 8px;
+  font-size: 12px;
+}
+.assigned-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: border-color .12s;
+}
+.assigned-row:last-child { margin-bottom: 0; }
+.assigned-row:hover { border-color: var(--amber); }
+.assigned-row.assigned-overdue { border-color: var(--red); background: rgba(239,68,68,.06); }
+.assigned-row.assigned-urgent  { border-color: var(--amber); }
+.assigned-row-left  { flex: 1; min-width: 0; }
+.assigned-row-title { font-size: 13px; font-weight: 600; }
+.assigned-row-reason { font-size: 11px; color: var(--text-2); margin-top: 2px; font-style: italic; }
+.assigned-row-meta   { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.assigned-row-badge  { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+
+/* ─── Assignment banner in ModuleDetail ──────────────────── */
+.assignment-banner {
+  background: rgba(245,158,11,.12);
+  border: 1px solid rgba(245,158,11,.35);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--amber);
+  margin-bottom: 10px;
+}
