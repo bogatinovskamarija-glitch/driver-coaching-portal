@@ -275,5 +275,4 @@ ON CONFLICT (id) DO UPDATE SET
   video_url        = EXCLUDED.video_url,
   sort_order       = EXCLUDED.sort_order,
   is_active        = EXCLUDED.is_active,
-  quiz             = EXCLUDED.quiz,
-  updated_at       = now();
+  quiz             = EXCLUDED.quiz;
