@@ -2008,3 +2008,97 @@ button { cursor: pointer; font: inherit; border: none; background: none; color: 
   transition: border-color .12s;
 }
 .video-external-link:hover { border-color: var(--accent); }
+
+/* --- Points Reference Card ---------------------------------- */
+.points-ref {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.points-ref-summary {
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+}
+.points-ref-summary::-webkit-details-marker { display: none; }
+.points-ref-summary::marker { display: none; }
+.points-ref-toggle-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  font-weight: 400;
+  margin-left: auto;
+}
+details[open] .points-ref-toggle-hint { display: none; }
+.points-ref-body {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--border);
+}
+.points-ref-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-top: 14px;
+}
+@media (max-width: 700px) {
+  .points-ref-cols { grid-template-columns: 1fr; }
+}
+.points-ref-col-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.points-ref-col-title.earn   { color: #22c55e; }
+.points-ref-col-title.deduct { color: #ef4444; }
+.points-ref-col-title.reward { color: #f59e0b; }
+.points-ref-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.points-ref-table td {
+  padding: 4px 2px;
+  color: var(--text-2);
+  vertical-align: middle;
+}
+.points-ref-table td.pts {
+  text-align: right;
+  font-weight: 700;
+  white-space: nowrap;
+  padding-left: 8px;
+}
+.pts.earn   { color: #22c55e; }
+.pts.deduct { color: #ef4444; }
+.pts.neutral { color: var(--text-3); }
+.points-ref-reward-box {
+  text-align: center;
+  padding: 12px 8px;
+  background: rgba(245,158,11,.08);
+  border: 1px solid rgba(245,158,11,.2);
+  border-radius: 8px;
+  margin-top: 2px;
+}
+.reward-target {
+  font-size: 22px;
+  font-weight: 800;
+  color: #f59e0b;
+  line-height: 1.2;
+}
+.reward-equals {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin: 4px 0 8px;
+}
+.reward-note {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.5;
+}

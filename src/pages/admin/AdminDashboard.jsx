@@ -165,6 +165,50 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Points system reference */}
+      <details className="admin-section points-ref">
+        <summary className="admin-section-title points-ref-summary">
+          🏆 Points System Reference <span className="points-ref-toggle-hint">(click to expand)</span>
+        </summary>
+        <div className="points-ref-body">
+          <div className="points-ref-cols">
+            <div className="points-ref-col">
+              <div className="points-ref-col-title earn">⬆ Earning Points</div>
+              <table className="points-ref-table">
+                <tbody>
+                  <tr><td>Daily pre-trip inspection</td><td className="pts earn">+10</td></tr>
+                  <tr><td>7-day pre-trip streak</td><td className="pts earn">+100</td></tr>
+                  <tr><td>30-day pre-trip streak</td><td className="pts earn">+300</td></tr>
+                  <tr><td>Training module (base)</td><td className="pts earn">+30–50</td></tr>
+                  <tr><td>On-time assignment bonus</td><td className="pts earn">+25</td></tr>
+                  <tr><td>DOT clean inspection</td><td className="pts earn">+75</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="points-ref-col">
+              <div className="points-ref-col-title deduct">⬇ Deductions</div>
+              <table className="points-ref-table">
+                <tbody>
+                  <tr><td>DOT minor violations</td><td className="pts neutral">0</td></tr>
+                  <tr><td>DOT major violations</td><td className="pts deduct">−50</td></tr>
+                  <tr><td>DOT critical violations</td><td className="pts deduct">−100</td></tr>
+                  <tr><td>DOT Out of Service (OOS)</td><td className="pts deduct">−150</td></tr>
+                  <tr><td>Overdue training penalty</td><td className="pts deduct">−25</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="points-ref-col">
+              <div className="points-ref-col-title reward">🎁 Quarterly Reward</div>
+              <div className="points-ref-reward-box">
+                <div className="reward-target">1,000 pts</div>
+                <div className="reward-equals">= $500 bonus</div>
+                <div className="reward-note">Points reset each quarter via the "🔄 New Quarter" button in Driver Management.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
+
       {/* Recent activity */}
       <div className="admin-section">
         <div className="admin-section-title">Recent Pre-Trips</div>
