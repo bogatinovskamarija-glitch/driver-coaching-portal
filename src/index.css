@@ -1916,3 +1916,16 @@ button { cursor: pointer; font: inherit; border: none; background: none; color: 
   color: var(--amber);
   margin-bottom: 10px;
 }
+
+/* ─── Expiry badges — updated color thresholds ───────────── */
+/* Override any prior .expiry-amber/.expiry-red rules        */
+.expiry-red    { color: var(--red)   !important; font-weight: 600; }
+.expiry-amber  { color: var(--amber) !important; font-weight: 600; }
+.expiry-green  { color: var(--text-2); }
+
+.expiry-inline {
+  font-size: 12px;
+}
+.expiry-inline.expiry-red   { color: var(--red);   font-weight: 700; }
+.expiry-inline.expiry-amber { color: var(--amber);  font-weight: 600; }
+.expiry-inline.expiry-green { color: var(--text-2); }

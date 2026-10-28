@@ -9,6 +9,21 @@ function daysLeft(dueDate) {
   return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
+function expiryClass(days) {
+  if (days === null) return ''
+  if (days < 0)  return 'text-red'    // expired
+  if (days <= 7) return 'text-red'    // expires this week
+  if (days <= 30) return 'text-amber' // expires this month
+  return ''                           // fine
+}
+
+function ExpiryCell({ days, display }) {
+  if (!display) return <span className="text-muted">—</span>
+  const cls = expiryClass(days)
+  const label = days !== null && days < 0 ? 'EXPIRED' : display
+  return <span className={cls} style={{ fontSize: 12, fontWeight: cls ? 600 : 400 }}>{label}</span>
+}
+
 function AssignmentBadge({ status, due }) {
   const dl = daysLeft(due)
   const isOverdue = dl !== null && dl < 0
@@ -127,12 +142,7 @@ function DriverDetail({ selected, sd, dStats, adminDriver, onBack }) {
             ].map(({ label, days, date }) => (
               <div key={label} className="detail-cred-row">
                 <span>{label}</span>
-                <span>
-                  <span className={days !== null && days < 30 ? 'text-red' : days !== null && days < 60 ? 'text-amber' : 'text-green'}>
-                    {days !== null ? `${days}d` : '—'}
-                  </span>
-                  {date && <span style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: 4 }}>{date}</span>}
-                </span>
+                <ExpiryCell days={days} display={date} />
               </div>
             ))}
             <div className="detail-cred-row"><span>MVR</span><span>{selected.mvr ? '✅' : '—'}</span></div>
@@ -338,18 +348,8 @@ export default function AdminDrivers() {
                       {d.company === 'carat' ? '◆ Carat' : '⬡ PFT'}
                     </span>
                   </td>
-                  <td>
-                    <span className={d.cdlDaysLeft !== null && d.cdlDaysLeft < 30 ? 'text-red' : d.cdlDaysLeft !== null && d.cdlDaysLeft < 60 ? 'text-amber' : ''}>
-                      {d.cdlDaysLeft !== null ? `${d.cdlDaysLeft}d` : '—'}
-                    </span>
-                    {d.cdlExpiry?.display && <div style={{ fontSize: 10, color: 'var(--text-3)' }}>{d.cdlExpiry.display}</div>}
-                  </td>
-                  <td>
-                    <span className={d.medDaysLeft !== null && d.medDaysLeft < 30 ? 'text-red' : d.medDaysLeft !== null && d.medDaysLeft < 60 ? 'text-amber' : ''}>
-                      {d.medDaysLeft !== null ? `${d.medDaysLeft}d` : '—'}
-                    </span>
-                    {d.medCert?.display && <div style={{ fontSize: 10, color: 'var(--text-3)' }}>{d.medCert.display}</div>}
-                  </td>
+                  <td><ExpiryCell days={d.cdlDaysLeft} display={d.cdlExpiry?.display} /></td>
+                  <td><ExpiryCell days={d.medDaysLeft} display={d.medCert?.display} /></td>
                   <td>{dStats?.total_points?.toLocaleString() ?? '—'}</td>
                   <td>{dStats ? `🔥 ${dStats.current_streak ?? 0}` : '—'}</td>
                   <td>{sd ? '✅' : <span className="text-muted">No account</span>}</td>

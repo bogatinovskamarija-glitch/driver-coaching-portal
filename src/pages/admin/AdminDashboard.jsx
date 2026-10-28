@@ -12,9 +12,17 @@ function KpiCard({ label, value, sub, accent }) {
   )
 }
 
-function ExpiryRow({ label, name, daysLeft, company }) {
-  const cls = daysLeft < 0 ? 'expiry-red' : daysLeft < 30 ? 'expiry-amber' : 'expiry-green'
-  const txt = daysLeft < 0 ? 'EXPIRED' : `${daysLeft}d`
+function expiryClass(days) {
+  if (days === null || days === undefined) return 'expiry-green'
+  if (days < 0)   return 'expiry-red'
+  if (days <= 7)  return 'expiry-red'
+  if (days <= 30) return 'expiry-amber'
+  return 'expiry-green'
+}
+
+function ExpiryRow({ label, name, daysLeft, display, company }) {
+  const cls = expiryClass(daysLeft)
+  const txt = daysLeft < 0 ? 'EXPIRED' : display ?? `${daysLeft}d`
   return (
     <div className="admin-expiry-row">
       <div className="admin-expiry-name">{name}</div>
@@ -66,19 +74,19 @@ export default function AdminDashboard() {
   const expiringItems = [
     ...filtered
       .filter(d => d.cdlDaysLeft !== null && d.cdlDaysLeft < 60)
-      .map(d => ({ label: 'CDL', name: d.name, daysLeft: d.cdlDaysLeft, company: d.company })),
+      .map(d => ({ label: 'CDL', name: d.name, daysLeft: d.cdlDaysLeft, display: d.cdlExpiry?.display, company: d.company })),
     ...filtered
       .filter(d => d.medDaysLeft !== null && d.medDaysLeft < 60)
-      .map(d => ({ label: 'Med Cert', name: d.name, daysLeft: d.medDaysLeft, company: d.company })),
+      .map(d => ({ label: 'Med Cert', name: d.name, daysLeft: d.medDaysLeft, display: d.medCert?.display, company: d.company })),
     ...equipment.trucks
       .filter(t => t.regDaysLeft !== null && t.regDaysLeft < 60)
-      .map(t => ({ label: 'Truck Reg', name: t.name, daysLeft: t.regDaysLeft, company: t.company ?? '—' })),
+      .map(t => ({ label: 'Truck Reg', name: t.name, daysLeft: t.regDaysLeft, display: t.registration?.display, company: t.company ?? '—' })),
     ...equipment.trucks
       .filter(t => t.irpDaysLeft !== null && t.irpDaysLeft < 60)
-      .map(t => ({ label: 'Truck IRP', name: t.name, daysLeft: t.irpDaysLeft, company: t.company ?? '—' })),
+      .map(t => ({ label: 'Truck IRP', name: t.name, daysLeft: t.irpDaysLeft, display: null, company: t.company ?? '—' })),
     ...equipment.trailers
       .filter(t => t.irpDaysLeft !== null && t.irpDaysLeft < 60)
-      .map(t => ({ label: 'Trailer IRP', name: t.name, daysLeft: t.irpDaysLeft, company: t.company ?? '—' })),
+      .map(t => ({ label: 'Trailer IRP', name: t.name, daysLeft: t.irpDaysLeft, display: null, company: t.company ?? '—' })),
   ].sort((a, b) => (a.daysLeft ?? 9999) - (b.daysLeft ?? 9999))
 
   return (
@@ -140,14 +148,14 @@ export default function AdminDashboard() {
                     </span>
                   </td>
                   <td>
-                    <span className={d.cdlDaysLeft !== null && d.cdlDaysLeft < 30 ? 'text-red' : d.cdlDaysLeft !== null && d.cdlDaysLeft < 60 ? 'text-amber' : ''}>
-                      {d.cdlDaysLeft !== null ? `${d.cdlDaysLeft}d` : '—'}
-                    </span>
+                    {d.cdlExpiry?.display
+                      ? <span className={`expiry-inline ${expiryClass(d.cdlDaysLeft)}`}>{d.cdlDaysLeft < 0 ? 'EXPIRED' : d.cdlExpiry.display}</span>
+                      : <span className="text-muted">—</span>}
                   </td>
                   <td>
-                    <span className={d.medDaysLeft !== null && d.medDaysLeft < 30 ? 'text-red' : d.medDaysLeft !== null && d.medDaysLeft < 60 ? 'text-amber' : ''}>
-                      {d.medDaysLeft !== null ? `${d.medDaysLeft}d` : '—'}
-                    </span>
+                    {d.medCert?.display
+                      ? <span className={`expiry-inline ${expiryClass(d.medDaysLeft)}`}>{d.medDaysLeft < 0 ? 'EXPIRED' : d.medCert.display}</span>
+                      : <span className="text-muted">—</span>}
                   </td>
                   <td>{d.truckTaskId ? '✅' : '—'}</td>
                 </tr>
