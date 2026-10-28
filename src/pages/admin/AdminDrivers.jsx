@@ -292,15 +292,10 @@ function DriverDetail({ selected, sd, dStats, adminDriver, onBack }) {
           {dStats && (
             <div style={{ marginTop: 12 }}>
               <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4 }}>
-                This quarter — progress to $500 reward
+                Quarter points — #1 ranked driver at quarter end wins $500
               </div>
-              <div className="reward-progress-track" style={{ height: 6 }}>
-                <div className="reward-progress-fill"
-                  style={{ width: `${Math.min(100, ((dStats.quarter_points ?? 0) / 1000) * 100)}%` }} />
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 3 }}>
-                {(dStats.quarter_points ?? 0).toLocaleString()} / 1,000 pts this quarter
-                {(dStats.quarter_points ?? 0) >= 1000 && ' 🎉 Reward earned!'}
+              <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 600 }}>
+                {(dStats.quarter_points ?? 0).toLocaleString()} pts this quarter
               </div>
             </div>
           )}

@@ -2,24 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 
-const REWARD_THRESHOLD = 1000
-const REWARD_AMOUNT    = '$500'
-
-function ProgressBar({ current, max, accent }) {
-  const pct = Math.min(100, Math.round((current / max) * 100))
-  return (
-    <div className="reward-bar-wrap">
-      <div className="reward-bar-track">
-        <div className="reward-bar-fill" style={{ width: `${pct}%`, background: accent ?? 'var(--accent)' }} />
-      </div>
-      <div className="reward-bar-labels">
-        <span>{current.toLocaleString()} pts</span>
-        <span style={{ color: '#22c55e', fontWeight: 700 }}>{pct}% → {REWARD_AMOUNT}</span>
-        <span>{max.toLocaleString()} pts</span>
-      </div>
-    </div>
-  )
-}
+const medalFor = (rank) => rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null
 
 export default function Leaderboard() {
   const { driver, stats } = useAuth()
@@ -33,7 +16,7 @@ export default function Leaderboard() {
   async function load() {
     const { data } = await supabase
       .from('drivers')
-      .select('id, name, company_id, driver_stats(total_points, quarter_points, current_streak, modules_completed)')
+      .select('id, name, company_id, driver_stats(quarter_points, current_streak, modules_completed)')
       .eq('is_active', true)
       .eq('is_admin', false)
       .order('name')
@@ -55,39 +38,50 @@ export default function Leaderboard() {
 
   const myPoints = stats?.quarter_points ?? 0
   const myRank   = rows.findIndex(r => r.id === driver?.id) + 1
-
-  const medalFor = (rank) => rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null
+  const isFirst  = myRank === 1
+  const leader   = rows[0]
+  const ptsToFirst = myRank > 1 && leader ? leader.pts - myPoints : 0
 
   return (
     <div className="leaderboard">
       <div className="lb-header">
         <div className="lb-title">🏆 Driver Leaderboard</div>
-        <div className="lb-sub">1,000 pts this quarter = $500 bonus · resets each quarter</div>
+        <div className="lb-sub">#1 driver at quarter end wins $500 · points reset each quarter</div>
       </div>
 
-      {/* Your progress */}
+      {/* Your standing */}
       <div className="lb-my-card">
         <div className="lb-my-top">
           <span className="lb-my-name">{driver?.name?.split(' ')[0] ?? 'You'}</span>
-          <span className="lb-my-rank">#{myRank || '—'}</span>
+          <span className="lb-my-rank">
+            {medalFor(myRank) ?? `#${myRank || '—'}`}
+          </span>
         </div>
-        <ProgressBar current={myPoints} max={REWARD_THRESHOLD} />
-        {myPoints >= REWARD_THRESHOLD && (
+        <div className="lb-my-pts-row">
+          <span className="lb-my-pts-num">{myPoints.toLocaleString()}</span>
+          <span className="lb-my-pts-lbl"> pts this quarter</span>
+        </div>
+        {isFirst ? (
           <div className="lb-reward-earned">
-            🎉 You earned your $500 quarterly reward — see your dispatcher!
+            🥇 You're in the lead! Keep it up to win the $500 quarterly reward.
           </div>
-        )}
+        ) : ptsToFirst > 0 ? (
+          <div className="lb-pts-to-first">
+            {ptsToFirst.toLocaleString()} pts behind 1st place
+          </div>
+        ) : null}
       </div>
 
-      {/* Full table */}
+      {/* Full ranking table */}
       <div className="lb-table">
         {rows.map((row, i) => {
-          const rank    = i + 1
-          const isMe    = row.id === driver?.id
-          const pct     = Math.min(100, Math.round((row.pts / REWARD_THRESHOLD) * 100))
-          const medal   = medalFor(rank)
+          const rank  = i + 1
+          const isMe  = row.id === driver?.id
+          const medal = medalFor(rank)
+          const maxPts = rows[0]?.pts || 1
+          const pct  = Math.min(100, Math.round((row.pts / maxPts) * 100))
           return (
-            <div key={row.id} className={`lb-row ${isMe ? 'lb-row-me' : ''}`}>
+            <div key={row.id} className={`lb-row ${isMe ? 'lb-row-me' : ''} ${rank === 1 ? 'lb-row-leader' : ''}`}>
               <div className="lb-rank">
                 {medal ?? <span className="lb-rank-num">{rank}</span>}
               </div>
@@ -95,6 +89,7 @@ export default function Leaderboard() {
                 <div className="lb-driver-name">
                   {row.name}
                   {isMe && <span className="lb-you-tag">You</span>}
+                  {rank === 1 && !isMe && <span className="lb-leader-tag">Leader</span>}
                 </div>
                 <div className="lb-mini-bar">
                   <div className="lb-mini-fill" style={{ width: `${pct}%` }} />
@@ -110,7 +105,8 @@ export default function Leaderboard() {
       </div>
 
       <div className="lb-footer">
-        Points are earned through pre-trips, training modules, coaching sessions, and phone inspections.
+        Points are earned through daily pre-trips, training modules, streaks, and clean DOT inspections.
+        The driver ranked #1 at the end of the quarter wins the $500 reward.
       </div>
     </div>
   )

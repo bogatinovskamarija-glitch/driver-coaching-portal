@@ -2102,3 +2102,41 @@ details[open] .points-ref-toggle-hint { display: none; }
   color: var(--text-3);
   line-height: 1.5;
 }
+
+/* --- Leaderboard rank-based updates ------------------------- */
+.lb-my-pts-row {
+  margin-top: 6px;
+  text-align: center;
+}
+.lb-my-pts-num {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--accent);
+}
+.lb-my-pts-lbl {
+  font-size: 13px;
+  color: var(--text-3);
+}
+.lb-pts-to-first {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+  background: rgba(255,255,255,.04);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.lb-row-leader {
+  border-left: 3px solid #f59e0b;
+}
+.lb-leader-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #f59e0b;
+  background: rgba(245,158,11,.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+}

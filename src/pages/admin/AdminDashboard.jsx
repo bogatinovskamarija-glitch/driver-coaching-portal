@@ -200,9 +200,9 @@ export default function AdminDashboard() {
             <div className="points-ref-col">
               <div className="points-ref-col-title reward">🎁 Quarterly Reward</div>
               <div className="points-ref-reward-box">
-                <div className="reward-target">1,000 pts</div>
-                <div className="reward-equals">= $500 bonus</div>
-                <div className="reward-note">Points reset each quarter via the "🔄 New Quarter" button in Driver Management.</div>
+                <div className="reward-target">#1 Driver</div>
+                <div className="reward-equals">wins $500</div>
+                <div className="reward-note">The driver ranked #1 at the end of the quarter earns the $500 bonus. Reset all quarter points via "🔄 New Quarter" in Driver Management.</div>
               </div>
             </div>
           </div>
