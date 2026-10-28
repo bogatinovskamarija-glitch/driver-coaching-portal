@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
+import { fetchAllEquipment } from '../../lib/clickup'
 
 const CATEGORIES = [
   { value: 'insurance',     label: 'Insurance' },
@@ -18,25 +19,42 @@ function fmt(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function parseAssignTo(val) {
+  if (!val || val === 'all')         return { fleet: 'all',   vehicle_id: null, vehicle_name: null }
+  if (val === 'fleet:carat')         return { fleet: 'carat', vehicle_id: null, vehicle_name: null }
+  if (val === 'fleet:pft')           return { fleet: 'pft',   vehicle_id: null, vehicle_name: null }
+  const [type, id, ...rest] = val.split(':')
+  const name = rest.join(':')
+  const fleet = type === 'truck' || type === 'trailer' || type === 'driver'
+    ? (name.toLowerCase().includes('pft') || name.toLowerCase().includes('pro freight') ? 'pft' : 'carat')
+    : 'all'
+  return { fleet, vehicle_id: id, vehicle_name: name }
+}
+
 export default function AdminDocuments() {
   const { driver } = useAuth()
-  const [docs, setDocs]       = useState([])
-  const [loading, setLoading] = useState(true)
+  const [docs, setDocs]         = useState([])
+  const [drivers, setDrivers]   = useState([])
+  const [equipment, setEquipment] = useState({ trucks: [], trailers: [] })
+  const [loading, setLoading]   = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [form, setForm] = useState({ name: '', description: '', fleet: 'all', category: 'general' })
-  const [file, setFile]       = useState(null)
-  const [filter, setFilter]   = useState('all')
+  const [form, setForm] = useState({ name: '', description: '', assignTo: 'all', category: 'general' })
+  const [file, setFile]         = useState(null)
+  const [filter, setFilter]     = useState('all')
   const fileRef = useRef()
 
   useEffect(() => { load() }, [])
 
   async function load() {
-    const { data } = await supabase
-      .from('fleet_documents')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setDocs(data ?? [])
+    const [{ data: docData }, equip, { data: driverData }] = await Promise.all([
+      supabase.from('fleet_documents').select('*').order('created_at', { ascending: false }),
+      fetchAllEquipment(),
+      supabase.from('drivers').select('id, name, company_id').eq('is_active', true).eq('is_admin', false).order('name'),
+    ])
+    setDocs(docData ?? [])
+    setEquipment(equip ?? { trucks: [], trailers: [] })
+    setDrivers(driverData ?? [])
     setLoading(false)
   }
 
@@ -44,8 +62,10 @@ export default function AdminDocuments() {
     if (!file || !form.name.trim()) return
     setUploading(true)
 
+    const { fleet, vehicle_id, vehicle_name } = parseAssignTo(form.assignTo)
     const ext      = file.name.split('.').pop()
-    const safeName = `${form.fleet}/${Date.now()}_${crypto.randomUUID()}.${ext}`
+    const folder   = vehicle_id ?? fleet
+    const safeName = `${folder}/${Date.now()}_${crypto.randomUUID()}.${ext}`
 
     const { data: uploadData, error: uploadErr } = await supabase.storage
       .from('fleet-documents')
@@ -58,17 +78,19 @@ export default function AdminDocuments() {
     }
 
     await supabase.from('fleet_documents').insert({
-      name:        form.name.trim(),
-      description: form.description.trim() || null,
-      file_path:   uploadData.path,
-      file_type:   file.type,
-      file_size:   file.size,
-      category:    form.category,
-      fleet:       form.fleet,
-      uploaded_by: driver?.id,
+      name:         form.name.trim(),
+      description:  form.description.trim() || null,
+      file_path:    uploadData.path,
+      file_type:    file.type,
+      file_size:    file.size,
+      category:     form.category,
+      fleet,
+      vehicle_id,
+      vehicle_name,
+      uploaded_by:  driver?.id,
     })
 
-    setForm({ name: '', description: '', fleet: 'all', category: 'general' })
+    setForm({ name: '', description: '', assignTo: 'all', category: 'general' })
     setFile(null)
     if (fileRef.current) fileRef.current.value = ''
     setShowForm(false)
@@ -90,7 +112,18 @@ export default function AdminDocuments() {
     if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
 
-  const filtered = filter === 'all' ? docs : docs.filter(d => d.fleet === filter || d.fleet === 'all')
+  function audienceLabel(doc) {
+    if (doc.vehicle_name) return doc.vehicle_name
+    if (doc.fleet === 'all')   return 'All drivers'
+    if (doc.fleet === 'carat') return '◆ Carat Fleet'
+    if (doc.fleet === 'pft')   return '⬡ PFT Fleet'
+    return doc.fleet
+  }
+
+  const filtered = filter === 'all'
+    ? docs
+    : docs.filter(d => d.fleet === filter || d.fleet === 'all' || (d.vehicle_name ?? '').toLowerCase().includes(filter))
+
   const catLabel = v => CATEGORIES.find(c => c.value === v)?.label ?? v
 
   return (
@@ -112,21 +145,50 @@ export default function AdminDocuments() {
         <div className="assign-form" style={{ marginBottom: 16 }}>
           <div className="cf-row">
             <label className="cf-label">Document Name *</label>
-            <input className="cf-input" placeholder="e.g. Truck 130 Insurance Certificate 2025"
+            <input className="cf-input" placeholder="e.g. Truck 130 Registration 2025"
               value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
           </div>
           <div className="cf-row">
             <label className="cf-label">Description (optional)</label>
-            <input className="cf-input" placeholder="e.g. Progressive Insurance, expires Oct 2025"
+            <input className="cf-input" placeholder="e.g. Expires Oct 2025"
               value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <div className="cf-row" style={{ flex: 1 }}>
-              <label className="cf-label">Fleet / Audience</label>
-              <select className="cf-input" value={form.fleet} onChange={e => setForm(f => ({ ...f, fleet: e.target.value }))}>
-                <option value="all">All drivers</option>
-                <option value="carat">Carat Expedited only</option>
-                <option value="pft">Pro Freight only</option>
+            <div className="cf-row" style={{ flex: 2 }}>
+              <label className="cf-label">Assign to *</label>
+              <select className="cf-input" value={form.assignTo} onChange={e => setForm(f => ({ ...f, assignTo: e.target.value }))}>
+                <optgroup label="Fleet-wide">
+                  <option value="all">All drivers</option>
+                  <option value="fleet:carat">◆ Carat Fleet only</option>
+                  <option value="fleet:pft">⬡ PFT Fleet only</option>
+                </optgroup>
+                {equipment.trucks.length > 0 && (
+                  <optgroup label="Specific Truck">
+                    {equipment.trucks.map(t => (
+                      <option key={t.id} value={`truck:${t.id}:${t.name} (${t.company === 'carat' ? 'Carat' : 'PFT'})`}>
+                        🚛 {t.name} ({t.company === 'carat' ? 'Carat' : 'PFT'})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {equipment.trailers.length > 0 && (
+                  <optgroup label="Specific Trailer">
+                    {equipment.trailers.map(t => (
+                      <option key={t.id} value={`trailer:${t.id}:${t.name}`}>
+                        🔗 {t.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {drivers.length > 0 && (
+                  <optgroup label="Specific Driver">
+                    {drivers.map(d => (
+                      <option key={d.id} value={`driver:${d.id}:${d.name} (${d.company_id === 'carat' ? 'Carat' : 'PFT'})`}>
+                        👤 {d.name} ({d.company_id === 'carat' ? 'Carat' : 'PFT'})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
             <div className="cf-row" style={{ flex: 1 }}>
@@ -172,9 +234,7 @@ export default function AdminDocuments() {
                 {doc.description && <div className="doc-desc">{doc.description}</div>}
                 <div className="doc-meta">
                   <span className="doc-cat-chip">{catLabel(doc.category)}</span>
-                  <span className="doc-fleet-chip">
-                    {doc.fleet === 'all' ? 'All drivers' : doc.fleet === 'carat' ? '◆ Carat' : '⬡ PFT'}
-                  </span>
+                  <span className="doc-fleet-chip">{audienceLabel(doc)}</span>
                   {doc.file_size && <span style={{ color: 'var(--text-3)' }}>{fmt(doc.file_size)}</span>}
                   <span style={{ color: 'var(--text-3)' }}>
                     {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}

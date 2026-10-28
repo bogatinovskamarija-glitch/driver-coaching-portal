@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { findDriverByEmail, fetchTruckById, fetchTrailerById } from '../../lib/clickup'
+import { supabase } from '../../lib/supabase'
 
 function DocCard({ label, value, daysLeft, url }) {
   const statusCls = daysLeft === null ? '' : daysLeft < 0 ? 'doc-expired' : daysLeft < 30 ? 'doc-warning' : 'doc-ok'
@@ -16,6 +17,29 @@ function DocCard({ label, value, daysLeft, url }) {
           Open Document ↗
         </a>
       )}
+    </div>
+  )
+}
+
+async function openUploadedDoc(doc) {
+  const { data } = await supabase.storage
+    .from('fleet-documents')
+    .createSignedUrl(doc.file_path, 3600)
+  if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+}
+
+function UploadedDocRow({ doc }) {
+  const icon = doc.file_type?.includes('pdf') ? '📄' : doc.file_type?.includes('image') ? '🖼️' : '📋'
+  const date = new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return (
+    <div className="driver-doc-row" onClick={() => openUploadedDoc(doc)} style={{ cursor: 'pointer' }}>
+      <div className="driver-doc-icon">{icon}</div>
+      <div className="driver-doc-info">
+        <div className="driver-doc-name">{doc.name}</div>
+        {doc.description && <div className="driver-doc-desc">{doc.description}</div>}
+        <div className="driver-doc-meta">{date}</div>
+      </div>
+      <div className="driver-doc-arrow">↗</div>
     </div>
   )
 }
@@ -36,10 +60,11 @@ function Section({ title, icon, children }) {
 export default function Documents() {
   const { driver } = useAuth()
   const [clickupDriver, setClickupDriver] = useState(null)
-  const [truck, setTruck]     = useState(null)
-  const [trailer, setTrailer] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState(null)
+  const [truck, setTruck]         = useState(null)
+  const [trailer, setTrailer]     = useState(null)
+  const [uploadedDocs, setUploadedDocs] = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState(null)
 
   useEffect(() => {
     load()
@@ -56,6 +81,19 @@ export default function Documents() {
       ])
       setTruck(t)
       setTrailer(tr)
+
+      // Fetch uploaded fleet documents scoped to this driver/vehicle
+      const vehicleIds = [driver.id]
+      if (t?.id)  vehicleIds.push(t.id)
+      if (tr?.id) vehicleIds.push(tr.id)
+
+      const [{ data: vehicleDocs }, { data: fleetDocs }] = await Promise.all([
+        supabase.from('fleet_documents').select('*').in('vehicle_id', vehicleIds),
+        supabase.from('fleet_documents').select('*').is('vehicle_id', null).in('fleet', ['all', driver.company_id]),
+      ])
+      const merged = [...(vehicleDocs ?? []), ...(fleetDocs ?? [])]
+      merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      setUploadedDocs(merged)
     } catch (e) {
       setError('Failed to load documents. Check your connection.')
     } finally {
@@ -163,6 +201,15 @@ export default function Documents() {
               </a>
             </div>
           )}
+        </Section>
+      )}
+
+      {/* Uploaded documents (scoped to this driver/vehicle) */}
+      {uploadedDocs.length > 0 && (
+        <Section title="Documents from Dispatch" icon="📁">
+          {uploadedDocs.map(doc => (
+            <UploadedDocRow key={doc.id} doc={doc} />
+          ))}
         </Section>
       )}
 
