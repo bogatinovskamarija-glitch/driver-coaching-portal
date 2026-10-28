@@ -73,6 +73,17 @@ function getDaysUntil(dateObj) {
   return Math.ceil((dateObj.raw - now) / (1000 * 60 * 60 * 24))
 }
 
+// ClickUp stores IRP registration date; actual expiry = registration + 1 year
+function irpExpiry(dateObj) {
+  if (!dateObj || typeof dateObj !== 'object') return null
+  const exp = new Date(dateObj.raw)
+  exp.setFullYear(exp.getFullYear() + 1)
+  return {
+    raw: exp.getTime(),
+    display: exp.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+  }
+}
+
 export function normalizeDriver(task, company) {
   const cdl        = getField(task, 'cdl', 'cdl expiry')
   const medCert    = getField(task, 'med cert', 'medical certificate', 'medical card')
@@ -133,7 +144,7 @@ export function normalizeTruck(task, company) {
     registration: reg,
     regDaysLeft:  getDaysUntil(reg),
     irp,
-    irpDaysLeft:  getDaysUntil(irp),
+    irpDaysLeft:  getDaysUntil(irpExpiry(irp)),  // IRP field = registration date, expiry = +1 year
     insurance:    getField(task, 'insurance'),
     nyPermit:     getField(task, 'ny permit'),
     ifta:         getField(task, 'ifta 2026'),
@@ -153,7 +164,7 @@ export function normalizeTrailer(task) {
     vin:          getField(task, 'vin'),
     plate:        getField(task, 'plate'),
     irp,
-    irpDaysLeft:  getDaysUntil(irp),
+    irpDaysLeft:  getDaysUntil(irpExpiry(irp)),  // IRP field = registration date, expiry = +1 year
     expirations,
     expDaysLeft:  getDaysUntil(expirations),
     insurance:    getField(task, 'insurance'),
