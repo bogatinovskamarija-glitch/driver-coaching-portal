@@ -166,6 +166,25 @@ export default function Dashboard({ onNav }) {
             <div className="stat-lbl">Rank</div>
           </div>
         </div>
+
+        {/* $100 reward progress bar */}
+        <div className="reward-progress">
+          <div className="reward-progress-label">
+            <span>💵 Progress to $100 Reward</span>
+            <span style={{ color: '#22c55e', fontWeight: 600 }}>{Math.min(100, Math.round(points / 10))}%</span>
+          </div>
+          <div className="reward-progress-track">
+            <div
+              className="reward-progress-fill"
+              style={{ width: `${Math.min(100, (points / 1000) * 100)}%` }}
+            />
+          </div>
+          <div className="reward-progress-sub">
+            {points >= 1000
+              ? '🎉 You earned your $100 — talk to your dispatcher!'
+              : `${(1000 - points).toLocaleString()} pts to go`}
+          </div>
+        </div>
       </div>
 
       <div className="dash-body">
@@ -248,6 +267,10 @@ export default function Dashboard({ onNav }) {
           <div className="quick-card" onClick={() => onNav('training')}>
             <span>📚</span>
             <span>Training</span>
+          </div>
+          <div className="quick-card" onClick={() => onNav('leaderboard')}>
+            <span>🏆</span>
+            <span>Leaderboard</span>
           </div>
         </div>
       </div>

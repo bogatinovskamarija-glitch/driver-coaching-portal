@@ -4,12 +4,14 @@ import Dashboard from './driver/Dashboard'
 import PreTrip from './driver/PreTrip'
 import Training from './driver/Training'
 import Documents from './driver/Documents'
+import Leaderboard from './driver/Leaderboard'
 
 const NAV = [
-  { id: 'home',     icon: '🏠', label: 'Home' },
-  { id: 'pretip',   icon: '✅', label: 'Pre-Trip' },
-  { id: 'training', icon: '📚', label: 'Training' },
-  { id: 'docs',     icon: '📁', label: 'Docs' },
+  { id: 'home',        icon: '🏠', label: 'Home' },
+  { id: 'pretip',      icon: '✅', label: 'Pre-Trip' },
+  { id: 'training',    icon: '📚', label: 'Training' },
+  { id: 'docs',        icon: '📁', label: 'Docs' },
+  { id: 'leaderboard', icon: '🏆', label: 'Ranks' },
 ]
 
 export default function DriverApp() {
@@ -34,10 +36,11 @@ export default function DriverApp() {
 
       {/* Page content */}
       <div className="driver-page">
-        {tab === 'home'     && <Dashboard onNav={setTab} />}
-        {tab === 'pretip'   && <PreTrip onBack={() => setTab('home')} />}
-        {tab === 'training' && <Training />}
-        {tab === 'docs'     && <Documents />}
+        {tab === 'home'        && <Dashboard onNav={setTab} />}
+        {tab === 'pretip'      && <PreTrip onBack={() => setTab('home')} />}
+        {tab === 'training'    && <Training />}
+        {tab === 'docs'        && <Documents />}
+        {tab === 'leaderboard' && <Leaderboard />}
       </div>
 
       {/* Bottom nav */}

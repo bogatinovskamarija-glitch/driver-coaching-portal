@@ -2,10 +2,16 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import AdminDashboard from './admin/AdminDashboard'
 import AdminDrivers from './admin/AdminDrivers'
+import AdminCoaching from './admin/AdminCoaching'
+import AdminInspections from './admin/AdminInspections'
+import AdminReports from './admin/AdminReports'
 
 const NAV = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-  { id: 'drivers',   label: 'Drivers',   icon: '👥' },
+  { id: 'dashboard',   label: 'Dashboard',   icon: '📊' },
+  { id: 'drivers',     label: 'Drivers',     icon: '👥' },
+  { id: 'coaching',    label: 'Coaching',    icon: '📋' },
+  { id: 'inspections', label: 'Inspections', icon: '📞' },
+  { id: 'reports',     label: 'Reports',     icon: '🖨' },
 ]
 
 export default function AdminApp() {
@@ -38,8 +44,11 @@ export default function AdminApp() {
 
       {/* Page content */}
       <div className="admin-page">
-        {tab === 'dashboard' && <AdminDashboard />}
-        {tab === 'drivers'   && <AdminDrivers />}
+        {tab === 'dashboard'   && <AdminDashboard />}
+        {tab === 'drivers'     && <AdminDrivers />}
+        {tab === 'coaching'    && <AdminCoaching />}
+        {tab === 'inspections' && <AdminInspections />}
+        {tab === 'reports'     && <AdminReports />}
       </div>
     </div>
   )

@@ -7,7 +7,17 @@ const CATEGORY_META = {
   hos_eld:      { icon: '⏱️', label: 'HOS & ELD Compliance', color: '#F59E0B' },
   brakes_tires: { icon: '🛑', label: 'Brakes & Tires', color: '#EF4444' },
   safe_driving: { icon: '🚗', label: 'Safe Driving', color: '#3B82F6' },
+  motive:       { icon: '📱', label: 'Motive ELD Tutorials', color: '#8B5CF6' },
 }
+
+const MOTIVE_TUTORIALS = [
+  { id: 'mt1', title: 'Getting Started with Motive ELD', desc: 'Set up your device and connect to the truck', url: 'https://helpmotive.com/hc/en-us/categories/360001782531', icon: '📱' },
+  { id: 'mt2', title: 'Creating & Managing Logs', desc: 'How to start a drive, switch duty status, and review your logs', url: 'https://helpmotive.com/hc/en-us/sections/360007344971', icon: '📋' },
+  { id: 'mt3', title: 'HOS Rules & Violations', desc: 'Understanding violations and how to avoid them', url: 'https://helpmotive.com/hc/en-us/sections/360007344991', icon: '⚠️' },
+  { id: 'mt4', title: 'Unidentified Driving Events', desc: 'How to claim or reject unassigned segments', url: 'https://helpmotive.com/hc/en-us/articles/360038038951', icon: '🔍' },
+  { id: 'mt5', title: 'Driver Vehicle Inspection Reports (DVIR)', desc: 'Completing pre-trip and post-trip inspection reports in the app', url: 'https://helpmotive.com/hc/en-us/sections/360007348451', icon: '✅' },
+  { id: 'mt6', title: 'Roadside Inspection Mode', desc: 'How to show logs to a DOT officer during a stop', url: 'https://helpmotive.com/hc/en-us/articles/360019767152', icon: '🚔' },
+]
 
 function Quiz({ module, onComplete }) {
   const quiz = module.quiz ?? []
@@ -265,6 +275,31 @@ export default function Training() {
             : `❌ Score: ${result.score}% — Try again to earn full points`}
         </div>
       )}
+
+      {/* Motive Tutorials Section */}
+      <div className="motive-section">
+        <div className="motive-section-header">
+          <span className="motive-icon">📱</span>
+          <div>
+            <div className="motive-title">Motive ELD Tutorials</div>
+            <div className="motive-sub">Official Motive help articles — tap to open in browser</div>
+          </div>
+        </div>
+        <div className="motive-list">
+          {MOTIVE_TUTORIALS.map(t => (
+            <a key={t.id} href={t.url} target="_blank" rel="noopener noreferrer" className="motive-row">
+              <span className="motive-row-icon">{t.icon}</span>
+              <div className="motive-row-info">
+                <div className="motive-row-title">{t.title}</div>
+                <div className="motive-row-desc">{t.desc}</div>
+              </div>
+              <span className="motive-row-arrow">↗</span>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      <div className="section-divider">Training Modules</div>
 
       <div className="module-list">
         {modules.map(m => {
