@@ -2,46 +2,20 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
-  const { signIn, signUp, authError } = useAuth()
+  const { signIn, authError } = useAuth()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
-  const [mode, setMode]         = useState('login') // 'login' | 'signup'
   const [error, setError]       = useState('')
   const [busy, setBusy]         = useState(false)
-  const [sent, setSent]         = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
     if (!email || !password) return
     setBusy(true)
     setError('')
-
-    if (mode === 'signup') {
-      const err = await signUp(email, password)
-      if (err) { setError(err); setBusy(false); return }
-      setSent(true)
-      setBusy(false)
-      return
-    }
-
     const err = await signIn(email, password)
     if (err) setError(err)
     setBusy(false)
-  }
-
-  if (sent) {
-    return (
-      <div className="login-wrap">
-        <div className="login-card">
-          <div className="login-check">✉️</div>
-          <h2>Check your email</h2>
-          <p style={{ color: 'var(--text-2)', fontSize: '14px', textAlign: 'center', marginTop: 8 }}>
-            We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account, then come back here to sign in.
-          </p>
-          <button className="btn-link" onClick={() => { setSent(false); setMode('login') }}>Back to sign in</button>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -82,9 +56,10 @@ export default function Login() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
-              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+              autoComplete="current-password"
               required
             />
+            <p className="login-hint">Drivers: your password is your truck number (e.g. 101)</p>
           </div>
 
           {(error || authError) && (
@@ -92,17 +67,9 @@ export default function Login() {
           )}
 
           <button className="btn-primary" type="submit" disabled={busy}>
-            {busy ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}
+            {busy ? 'Please wait…' : 'Sign In'}
           </button>
         </form>
-
-        <div className="login-toggle">
-          {mode === 'login' ? (
-            <>First time? <button className="btn-link" onClick={() => setMode('signup')}>Create account</button></>
-          ) : (
-            <>Already have an account? <button className="btn-link" onClick={() => setMode('login')}>Sign in</button></>
-          )}
-        </div>
 
         <p className="login-footer">
           Having trouble? Contact dispatch.
