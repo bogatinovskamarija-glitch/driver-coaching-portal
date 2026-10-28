@@ -2154,3 +2154,12 @@ details[open] .points-ref-toggle-hint { display: none; }
   gap: 6px;
   flex-shrink: 0;
 }
+
+/* --- Leaderboard unranked / empty states --------------------- */
+.lb-row-unranked { opacity: 0.5; }
+.lb-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 13px;
+}

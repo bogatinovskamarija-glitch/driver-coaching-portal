@@ -93,6 +93,7 @@ export default function Dashboard({ onNav }) {
 
     if (!data) return
     const myPts = stats.quarter_points ?? 0
+    if (myPts === 0) { setRank(null); return }  // no rank until points earned
     const above = data.filter(d => (d.driver_stats?.[0]?.quarter_points ?? 0) > myPts).length
     setRank(above + 1)
   }
@@ -159,23 +160,23 @@ export default function Dashboard({ onNav }) {
           </div>
         </div>
 
-        {/* $500 quarterly reward progress bar */}
+        {/* Quarterly reward status */}
         {(() => {
           const qPts = stats.quarter_points ?? 0
-          const pct  = Math.min(100, Math.round((qPts / 1000) * 100))
           return (
             <div className="reward-progress">
               <div className="reward-progress-label">
-                <span>💵 This Quarter — Progress to $500</span>
-                <span style={{ color: '#22c55e', fontWeight: 600 }}>{pct}%</span>
-              </div>
-              <div className="reward-progress-track">
-                <div className="reward-progress-fill" style={{ width: `${pct}%` }} />
+                <span>🏆 This Quarter</span>
+                <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                  {qPts > 0 ? `${qPts.toLocaleString()} pts` : 'No points yet'}
+                </span>
               </div>
               <div className="reward-progress-sub">
-                {qPts >= 1000
-                  ? '🎉 You earned $500 this quarter — talk to your dispatcher!'
-                  : `${qPts.toLocaleString()} / 1,000 pts · ${(1000 - qPts).toLocaleString()} to go`}
+                {rank === 1
+                  ? '🥇 You\'re in the lead — stay #1 to win the $500 quarterly reward!'
+                  : rank !== null
+                    ? `You're ranked #${rank} this quarter. Keep earning to reach #1.`
+                    : 'Complete a pre-trip or training to start earning points and get ranked.'}
               </div>
             </div>
           )

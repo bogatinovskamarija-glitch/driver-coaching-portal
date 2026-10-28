@@ -37,9 +37,10 @@ export default function Leaderboard() {
   if (loading) return <div className="page-loader">Loading…</div>
 
   const myPoints = stats?.quarter_points ?? 0
-  const myRank   = rows.findIndex(r => r.id === driver?.id) + 1
+  const rankedRows = rows.filter(r => r.pts > 0)
+  const myRank   = myPoints > 0 ? rankedRows.findIndex(r => r.id === driver?.id) + 1 : 0
   const isFirst  = myRank === 1
-  const leader   = rows[0]
+  const leader   = rankedRows[0]
   const ptsToFirst = myRank > 1 && leader ? leader.pts - myPoints : 0
 
   return (
@@ -54,14 +55,18 @@ export default function Leaderboard() {
         <div className="lb-my-top">
           <span className="lb-my-name">{driver?.name?.split(' ')[0] ?? 'You'}</span>
           <span className="lb-my-rank">
-            {medalFor(myRank) ?? `#${myRank || '—'}`}
+            {myRank > 0 ? (medalFor(myRank) ?? `#${myRank}`) : '—'}
           </span>
         </div>
         <div className="lb-my-pts-row">
           <span className="lb-my-pts-num">{myPoints.toLocaleString()}</span>
           <span className="lb-my-pts-lbl"> pts this quarter</span>
         </div>
-        {isFirst ? (
+        {myPoints === 0 ? (
+          <div className="lb-pts-to-first">
+            Complete a pre-trip or training to get on the board.
+          </div>
+        ) : isFirst ? (
           <div className="lb-reward-earned">
             🥇 You're in the lead! Keep it up to win the $500 quarterly reward.
           </div>
@@ -74,11 +79,14 @@ export default function Leaderboard() {
 
       {/* Full ranking table */}
       <div className="lb-table">
-        {rows.map((row, i) => {
+        {rankedRows.length === 0 && (
+          <div className="lb-empty">No drivers have earned points yet this quarter.</div>
+        )}
+        {rankedRows.map((row, i) => {
           const rank  = i + 1
           const isMe  = row.id === driver?.id
           const medal = medalFor(rank)
-          const maxPts = rows[0]?.pts || 1
+          const maxPts = rankedRows[0]?.pts || 1
           const pct  = Math.min(100, Math.round((row.pts / maxPts) * 100))
           return (
             <div key={row.id} className={`lb-row ${isMe ? 'lb-row-me' : ''} ${rank === 1 ? 'lb-row-leader' : ''}`}>
@@ -97,6 +105,26 @@ export default function Leaderboard() {
               </div>
               <div className="lb-pts-col">
                 <div className="lb-pts-num">{row.pts.toLocaleString()}</div>
+                <div className="lb-pts-lbl">pts</div>
+              </div>
+            </div>
+          )
+        })}
+        {/* Unranked drivers (0 pts) */}
+        {rows.filter(r => r.pts === 0).map(row => {
+          const isMe = row.id === driver?.id
+          return (
+            <div key={row.id} className={`lb-row lb-row-unranked ${isMe ? 'lb-row-me' : ''}`}>
+              <div className="lb-rank"><span className="lb-rank-num" style={{ color: 'var(--text-3)' }}>—</span></div>
+              <div className="lb-info">
+                <div className="lb-driver-name" style={{ color: 'var(--text-3)' }}>
+                  {row.name}
+                  {isMe && <span className="lb-you-tag">You</span>}
+                </div>
+                <div className="lb-mini-bar"><div className="lb-mini-fill" style={{ width: '0%' }} /></div>
+              </div>
+              <div className="lb-pts-col">
+                <div className="lb-pts-num" style={{ color: 'var(--text-3)' }}>0</div>
                 <div className="lb-pts-lbl">pts</div>
               </div>
             </div>
