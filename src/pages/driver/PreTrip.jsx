@@ -55,12 +55,16 @@ export default function PreTrip({ onBack }) {
     })
     if (logErr) { setSubmitting(false); return }
 
+    // Fetch live stats from DB — never use cached stats for point arithmetic (cache may be stale)
+    const { data: liveRow } = await supabase.from('driver_stats').select('*').eq('driver_id', driver.id).single()
+    const liveStats = liveRow ?? stats
+
     // Update streak and points
     const today = new Date().toISOString().split('T')[0]
-    const lastDate  = stats.last_pre_trip_date
+    const lastDate  = liveStats.last_pre_trip_date
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
     const newStreak = lastDate === yesterday
-      ? (stats.current_streak ?? 0) + 1
+      ? (liveStats.current_streak ?? 0) + 1
       : 1
 
     let bonusPoints = 0
@@ -68,14 +72,14 @@ export default function PreTrip({ onBack }) {
     if (newStreak === 7)  { bonusPoints = 100; bonusReason = '🔥 7-Day Streak bonus!' }
     if (newStreak === 30) { bonusPoints = 300; bonusReason = '⚡ 30-Day Streak bonus!' }
 
-    const totalPoints = (stats.total_points ?? 0) + pointsEarned + bonusPoints
+    const totalPoints = (liveStats.total_points ?? 0) + pointsEarned + bonusPoints
 
     await supabase.from('driver_stats').upsert({
       driver_id:           driver.id,
       total_points:        totalPoints,
-      quarter_points:      Math.max(0, (stats.quarter_points ?? 0) + pointsEarned + bonusPoints),
+      quarter_points:      Math.max(0, (liveStats.quarter_points ?? 0) + pointsEarned + bonusPoints),
       current_streak:      newStreak,
-      longest_streak:      Math.max(stats.longest_streak ?? 0, newStreak),
+      longest_streak:      Math.max(liveStats.longest_streak ?? 0, newStreak),
       last_pre_trip_date:  today,
       updated_at:          new Date().toISOString(),
     })

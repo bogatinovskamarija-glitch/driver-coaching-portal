@@ -49,6 +49,9 @@ export default function Dashboard({ onNav }) {
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)
 
+  // Refresh on mount so stats cached before RLS policies were applied update silently
+  useEffect(() => { refreshDriver() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!driver) return
     // ClickUp is slow (3 external API calls) — load in background, don't block render
