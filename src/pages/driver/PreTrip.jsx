@@ -103,9 +103,9 @@ export default function PreTrip({ onBack }) {
     // Check and award badges
     await checkBadges(newStreak, totalPoints)
 
+    await refreshDriver()
     setEarned({ points: pointsEarned, bonus: bonusPoints, streak: newStreak })
     setDone(true)
-    await refreshDriver()
     setSubmitting(false)
   }
 

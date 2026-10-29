@@ -111,7 +111,13 @@ export function AuthProvider({ children }) {
 
   async function refreshDriver() {
     if (!session?.user) return
-    await loadDriver(session.user)
+    // Silent refresh — don't toggle loading state (avoids flash)
+    const { data: existing } = await supabase
+      .from('drivers')
+      .select('*, driver_stats(*)')
+      .eq('user_id', session.user.id)
+      .single()
+    if (existing) setDriver(existing)
   }
 
   const stats = driver?.driver_stats?.[0] ?? { total_points: 0, current_streak: 0, longest_streak: 0, modules_completed: 0 }
