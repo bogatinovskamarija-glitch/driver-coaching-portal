@@ -51,8 +51,10 @@ export default function Dashboard({ onNav }) {
 
   useEffect(() => {
     if (!driver) return
+    // ClickUp is slow (3 external API calls) — load in background, don't block render
+    loadClickupData()
+
     Promise.all([
-      loadClickupData(),
       checkTodayPretrip(),
       loadRank(),
       loadNextModule(),
