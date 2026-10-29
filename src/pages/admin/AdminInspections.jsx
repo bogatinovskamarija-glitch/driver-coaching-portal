@@ -51,6 +51,7 @@ export default function AdminInspections() {
   const [schedule, setSchedule]   = useState([])
   const [saving, setSaving]       = useState(false)
   const [saved, setSaved]         = useState(false)
+  const [saveError, setSaveError] = useState(null)
   const [loading, setLoading]     = useState(true)
   const [showNewMaint, setShowNewMaint] = useState(false)
 
@@ -119,6 +120,7 @@ export default function AdminInspections() {
   async function saveInspection() {
     if (!selected) return
     setSaving(true)
+    setSaveError(null)
     const itemsArr = INSPECTION_ITEMS.map(i => ({
       id: i.id, label: i.label, status: form.items[i.id] ?? 'not_checked',
     }))
@@ -138,7 +140,9 @@ export default function AdminInspections() {
       .select()
       .single()
 
-    if (!error && insp) {
+    if (error) {
+      setSaveError(error.message)
+    } else if (insp) {
       setSaved(true)
       await loadHistory()
       if (overallStatus === 'pass') {
@@ -147,7 +151,6 @@ export default function AdminInspections() {
           p_reason: `Clean phone inspection — ${fmtDate(form.inspection_date)}`, p_category: 'inspection',
         }).catch(() => {})
       }
-      // Reset form
       setForm({ inspection_date: new Date().toISOString().split('T')[0], truck_clickup_id: '', items: {}, follow_up_notes: '', follow_up_date: '' })
     }
     setSaving(false)
@@ -214,7 +217,7 @@ export default function AdminInspections() {
                   <div className="coaching-driver-email">{selected.email}</div>
                 </div>
                 <div className={`overall-badge status-${overallStatus}`}>
-                  {overallStatus === 'pass' ? '✓ Pass' : overallStatus === 'flag' ? '⚠ Flag' : overallStatus === 'fail' ? '✗ Fail' : 'In Progress'}
+                  {overallStatus === 'pass' ? '✓ Pass' : overallStatus === 'flag' ? '⚠ Flag' : overallStatus === 'fail' ? '✗ Fail' : 'Not started'}
                 </div>
               </div>
 
@@ -276,7 +279,15 @@ export default function AdminInspections() {
                   onChange={e => setForm(f => ({ ...f, follow_up_date: e.target.value }))} />
               </div>
 
+              {saveError && (
+                <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 8, padding: '8px 12px', background: 'rgba(239,68,68,.1)', borderRadius: 6 }}>
+                  ⚠️ Save failed: {saveError}
+                </div>
+              )}
               <div className="cf-actions">
+                <span className="cf-topics-count">
+                  {passCount + flagCount + failCount === 0 ? 'Check at least one item to save' : `${passCount + flagCount + failCount} of ${INSPECTION_ITEMS.length} items checked`}
+                </span>
                 <button className="btn-primary" onClick={saveInspection} disabled={saving || passCount + flagCount + failCount === 0}>
                   {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Inspection'}
                 </button>
