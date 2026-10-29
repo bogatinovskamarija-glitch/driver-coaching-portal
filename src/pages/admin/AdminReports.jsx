@@ -228,7 +228,7 @@ export default function AdminReports() {
           <div className="report-section-title">Driver Points Leaderboard</div>
           <table className="report-table">
             <thead>
-              <tr><th>#</th><th>Driver</th><th>Company</th><th>Points</th><th>Streak</th><th>Modules</th><th>Toward $100</th></tr>
+              <tr><th>#</th><th>Driver</th><th>Company</th><th>Points</th><th>Streak</th><th>Modules</th><th>Toward $500</th></tr>
             </thead>
             <tbody>
               {sortedDrivers.map((d, i) => {
