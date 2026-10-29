@@ -44,6 +44,147 @@ const DOT_RESULTS = [
 
 const OVERDUE_PENALTY = -25
 
+const ALERT_TYPES = [
+  { value: 'drug_test',    label: 'Random Drug Test',    icon: '🧪', color: '#ef4444' },
+  { value: 'alcohol_test', label: 'Random Alcohol Test', icon: '🍺', color: '#f97316' },
+  { value: 'custom',       label: 'Custom Alert',        icon: '⚠️', color: '#f59e0b' },
+]
+
+function AlertsSection({ driverId, adminDriver }) {
+  const [alerts, setAlerts]   = useState([])
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving]   = useState(false)
+  const [form, setForm] = useState({ type: 'drug_test', title: '', message: '', priority: 'high' })
+
+  useEffect(() => { if (driverId) load() }, [driverId])
+
+  async function load() {
+    const { data } = await supabase
+      .from('driver_alerts')
+      .select('*')
+      .eq('driver_id', driverId)
+      .order('created_at', { ascending: false })
+    setAlerts(data ?? [])
+  }
+
+  async function save() {
+    if (!driverId) return
+    setSaving(true)
+    const typeInfo = ALERT_TYPES.find(t => t.value === form.type)
+    const title = form.type !== 'custom' ? typeInfo.label : form.title.trim()
+    if (!title) { setSaving(false); return }
+    await supabase.from('driver_alerts').insert({
+      driver_id:  driverId,
+      type:       form.type,
+      title,
+      message:    form.message.trim() || null,
+      priority:   form.priority,
+      created_by: adminDriver?.id,
+    })
+    setForm({ type: 'drug_test', title: '', message: '', priority: 'high' })
+    setShowForm(false)
+    setSaving(false)
+    await load()
+  }
+
+  async function deleteAlert(id) {
+    await supabase.from('driver_alerts').delete().eq('id', id)
+    await load()
+  }
+
+  const active   = alerts.filter(a => !a.acknowledged_at)
+  const resolved = alerts.filter(a => a.acknowledged_at)
+
+  return (
+    <div className="detail-section" style={{ marginTop: 20 }}>
+      <div className="cf-actions" style={{ marginBottom: 12 }}>
+        <div className="detail-section-title" style={{ fontSize: 13 }}>Driver Alerts</div>
+        <button className="btn-primary" style={{ fontSize: 12, padding: '6px 14px' }} onClick={() => setShowForm(v => !v)}>
+          + Add Alert
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="assign-form">
+          <div className="cf-row">
+            <label className="cf-label">Alert Type</label>
+            <select className="cf-input" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+              {ALERT_TYPES.map(t => <option key={t.value} value={t.value}>{t.icon} {t.label}</option>)}
+            </select>
+          </div>
+          {form.type === 'custom' && (
+            <div className="cf-row">
+              <label className="cf-label">Alert Title *</label>
+              <input className="cf-input" placeholder="e.g. Missing paperwork, Schedule change"
+                value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+            </div>
+          )}
+          <div className="cf-row">
+            <label className="cf-label">Message / Instructions (shown to driver)</label>
+            <input className="cf-input" placeholder="e.g. Report to dispatch office before your next trip"
+              value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} />
+          </div>
+          <div className="cf-actions">
+            <span className="cf-topics-count">Driver sees this alert until they acknowledge it</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-link" onClick={() => setShowForm(false)}>Cancel</button>
+              <button className="btn-primary" onClick={save} disabled={saving || (form.type === 'custom' && !form.title.trim())}>
+                {saving ? 'Sending…' : 'Send Alert'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {active.length === 0 && !showForm && (
+        <p className="empty-state">No active alerts for this driver.</p>
+      )}
+
+      {active.map(a => {
+        const typeInfo = ALERT_TYPES.find(t => t.value === a.type) ?? ALERT_TYPES[2]
+        return (
+          <div key={a.id} className="assign-row" style={{ borderLeft: `3px solid ${typeInfo.color}` }}>
+            <div className="assign-row-info">
+              <div className="assign-row-title" style={{ color: typeInfo.color }}>
+                {typeInfo.icon} {a.title}
+              </div>
+              {a.message && <div className="assign-row-reason">"{a.message}"</div>}
+              <div className="assign-row-meta">
+                Sent {new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                {' · '}
+                <span style={{ color: '#f59e0b' }}>Pending acknowledgement</span>
+              </div>
+            </div>
+            <button className="maint-done-btn" style={{ fontSize: 11 }} onClick={() => deleteAlert(a.id)}>✕ Remove</button>
+          </div>
+        )
+      })}
+
+      {resolved.length > 0 && (
+        <details style={{ marginTop: 8 }}>
+          <summary style={{ fontSize: 12, color: 'var(--text-2)', cursor: 'pointer' }}>
+            {resolved.length} acknowledged alert{resolved.length !== 1 ? 's' : ''}
+          </summary>
+          {resolved.map(a => {
+            const typeInfo = ALERT_TYPES.find(t => t.value === a.type) ?? ALERT_TYPES[2]
+            return (
+              <div key={a.id} className="assign-row" style={{ opacity: .5 }}>
+                <div className="assign-row-info">
+                  <div className="assign-row-title">{typeInfo.icon} {a.title}</div>
+                  <div className="assign-row-meta">
+                    Acknowledged {new Date(a.acknowledged_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </div>
+                </div>
+                <span className="assign-badge done">✓ Ack</span>
+              </div>
+            )
+          })}
+        </details>
+      )}
+    </div>
+  )
+}
+
 function DOTSection({ driverId, adminDriver }) {
   const [inspections, setInspections] = useState([])
   const [showForm, setShowForm]       = useState(false)
@@ -324,6 +465,9 @@ function DriverDetail({ selected, sd, dStats, adminDriver, onBack }) {
           )}
         </div>
       </div>
+
+      {/* Driver Alerts */}
+      <AlertsSection driverId={sd?.id} adminDriver={adminDriver} />
 
       {/* DOT Roadside Inspections */}
       <DOTSection driverId={sd?.id} adminDriver={adminDriver} />

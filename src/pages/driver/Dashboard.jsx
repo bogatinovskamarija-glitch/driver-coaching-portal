@@ -46,6 +46,7 @@ export default function Dashboard({ onNav }) {
   const [rank, setRank]     = useState(null)
   const [nextModule, setNextModule] = useState(null)
   const [badges, setBadges] = useState([])
+  const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -56,6 +57,7 @@ export default function Dashboard({ onNav }) {
       loadRank(),
       loadNextModule(),
       loadBadges(),
+      loadAlerts(),
     ]).finally(() => setLoading(false))
   }, [driver])
 
@@ -108,6 +110,21 @@ export default function Dashboard({ onNav }) {
       .order('created_at', { ascending: true })
       .limit(1)
     setNextModule(data?.[0]?.coaching_modules ?? null)
+  }
+
+  async function loadAlerts() {
+    const { data } = await supabase
+      .from('driver_alerts')
+      .select('*')
+      .eq('driver_id', driver.id)
+      .is('acknowledged_at', null)
+      .order('created_at', { ascending: false })
+    setAlerts(data ?? [])
+  }
+
+  async function acknowledgeAlert(id) {
+    await supabase.from('driver_alerts').update({ acknowledged_at: new Date().toISOString() }).eq('id', id)
+    setAlerts(prev => prev.filter(a => a.id !== id))
   }
 
   async function loadBadges() {
@@ -184,20 +201,49 @@ export default function Dashboard({ onNav }) {
       </div>
 
       <div className="dash-body">
-        {/* Expiry alerts */}
+        {/* Admin-assigned alerts */}
+        {alerts.map(alert => {
+          const isTest = alert.type === 'drug_test' || alert.type === 'alcohol_test'
+          const icon = alert.type === 'drug_test' ? '🧪' : alert.type === 'alcohol_test' ? '🍺' : '⚠️'
+          const bg   = isTest ? 'rgba(239,68,68,.12)' : 'rgba(245,158,11,.12)'
+          const border = isTest ? '#ef4444' : '#f59e0b'
+          return (
+            <div key={alert.id} style={{
+              background: bg, border: `1.5px solid ${border}`, borderRadius: 10,
+              padding: '14px 16px', marginBottom: 10, display: 'flex', gap: 12, alignItems: 'flex-start',
+            }}>
+              <span style={{ fontSize: 24, flexShrink: 0 }}>{icon}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: border }}>{alert.title}</div>
+                {alert.message && <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 3 }}>{alert.message}</div>}
+              </div>
+              <button
+                onClick={() => acknowledgeAlert(alert.id)}
+                style={{
+                  flexShrink: 0, background: border, color: '#fff', border: 'none',
+                  borderRadius: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                OK, Got It
+              </button>
+            </div>
+          )
+        })}
+
+        {/* Expiry alerts (CDL / Med Cert / Equipment) */}
         {clickupDriver && (
           (() => {
-            const alerts = [
+            const expiryAlerts = [
               { label: 'CDL',      daysLeft: clickupDriver.cdlDaysLeft },
               { label: 'Med Cert', daysLeft: clickupDriver.medDaysLeft },
               { label: 'Truck Reg',daysLeft: truck?.regDaysLeft },
               { label: 'Truck IRP',daysLeft: truck?.irpDaysLeft },
               { label: 'Trailer', daysLeft: trailer?.irpDaysLeft },
             ].filter(a => a.daysLeft !== null && a.daysLeft < 60)
-            if (alerts.length === 0) return null
+            if (expiryAlerts.length === 0) return null
             return (
               <div className="expiry-row">
-                {alerts.map(a => <ExpiryChip key={a.label} {...a} />)}
+                {expiryAlerts.map(a => <ExpiryChip key={a.label} {...a} />)}
               </div>
             )
           })()
