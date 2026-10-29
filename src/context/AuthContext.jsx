@@ -30,13 +30,21 @@ export function AuthProvider({ children }) {
     setAuthError(null)
 
     // Check our drivers table first
+    // Note: query driver_stats separately — nested joins break RLS policies
     const { data: existing } = await supabase
       .from('drivers')
-      .select('*, driver_stats(*)')
+      .select('*')
       .eq('user_id', user.id)
       .single()
 
     if (existing) {
+      // Fetch stats as a direct query (nested joins with RLS don't work reliably)
+      const { data: statsRow } = await supabase
+        .from('driver_stats')
+        .select('*')
+        .eq('driver_id', existing.id)
+        .single()
+
       // Sync truck/trailer ClickUp IDs if not yet stored (runs once after deploy)
       if (!existing.truck_clickup_id) {
         const cd = await findDriverByEmail(user.email)
@@ -49,7 +57,7 @@ export function AuthProvider({ children }) {
           Object.assign(existing, updates)
         }
       }
-      setDriver(existing)
+      setDriver({ ...existing, driver_stats: statsRow ? [statsRow] : [] })
       setLoading(false)
       return
     }
@@ -111,13 +119,19 @@ export function AuthProvider({ children }) {
 
   async function refreshDriver() {
     if (!session?.user) return
-    // Silent refresh — don't toggle loading state (avoids flash)
+    // Silent refresh — separate queries to avoid nested-join RLS issues
     const { data: existing } = await supabase
       .from('drivers')
-      .select('*, driver_stats(*)')
+      .select('*')
       .eq('user_id', session.user.id)
       .single()
-    if (existing) setDriver(existing)
+    if (!existing) return
+    const { data: statsRow } = await supabase
+      .from('driver_stats')
+      .select('*')
+      .eq('driver_id', existing.id)
+      .single()
+    setDriver({ ...existing, driver_stats: statsRow ? [statsRow] : [] })
   }
 
   const stats = driver?.driver_stats?.[0] ?? { total_points: 0, current_streak: 0, longest_streak: 0, modules_completed: 0 }

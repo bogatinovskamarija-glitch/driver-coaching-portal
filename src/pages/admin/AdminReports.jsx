@@ -44,30 +44,52 @@ export default function AdminReports() {
       toDate   = new Date(y, qStart + 3, 0).toISOString().split('T')[0]
     }
 
+    // Use separate flat queries — nested joins with RLS don't work reliably
     const driverQ = supabase
       .from('drivers')
-      .select('id, name, email, company_id, driver_stats(*)')
+      .select('id, name, email, company_id')
       .eq('is_admin', false)
       .eq('is_active', true)
     if (company !== 'all') driverQ.eq('company_id', company)
 
-    const [drv, sess, insp] = await Promise.all([
+    const [drv, allStats, sess, insp] = await Promise.all([
       driverQ,
+      supabase.from('driver_stats').select('*'),
       supabase.from('coaching_sessions')
         .select('*, drivers(name, company_id)')
         .gte('month', fromDate)
         .lte('month', toDate),
       supabase.from('phone_inspections')
-        .select('*, drivers(name, company_id)')
+        .select('*')
         .gte('inspection_date', fromDate)
         .lte('inspection_date', toDate),
     ])
 
-    let drvData = drv.data ?? []
+    // Build a stats map keyed by driver_id
+    const statsMap = {}
+    for (const s of allStats.data ?? []) statsMap[s.driver_id] = s
+
+    let drvData = (drv.data ?? []).map(d => ({
+      ...d,
+      driver_stats: statsMap[d.id] ? [statsMap[d.id]] : [],
+    }))
     if (company !== 'all') drvData = drvData.filter(d => d.company_id === company)
     setDrivers(drvData)
     setSessions(sess.data ?? [])
-    setInsp(insp.data ?? [])
+
+    // Merge driver name into inspections without a join
+    const driverById = {}
+    for (const d of drv.data ?? []) driverById[d.id] = d
+    const inspWithDriver = (insp.data ?? []).map(i => ({
+      ...i,
+      drivers: driverById[i.driver_id]
+        ? { name: driverById[i.driver_id].name, company_id: driverById[i.driver_id].company_id }
+        : null,
+    }))
+    const filteredInsp = company !== 'all'
+      ? inspWithDriver.filter(i => i.drivers?.company_id === company)
+      : inspWithDriver
+    setInsp(filteredInsp)
     setLoading(false)
   }
 
