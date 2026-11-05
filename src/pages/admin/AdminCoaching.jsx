@@ -112,12 +112,28 @@ export default function AdminCoaching() {
   }
 
   async function loadTraining() {
-    const { data } = await supabase
-      .from('module_completions')
-      .select('*, coaching_modules(title, category, points_value)')
-      .eq('driver_id', selected.id)
-      .order('created_at', { ascending: false })
-    setTraining(data ?? [])
+    // Pull completed assignments (source of truth) and quiz results separately
+    const [{ data: assignments }, { data: completions }] = await Promise.all([
+      supabase
+        .from('training_assignments')
+        .select('*, coaching_modules(id, title, category, points_value)')
+        .eq('driver_id', selected.id)
+        .eq('status', 'completed')
+        .order('completed_at', { ascending: false }),
+      supabase
+        .from('module_completions')
+        .select('*')
+        .eq('driver_id', selected.id),
+    ])
+    // Map quiz results by module_id for quick lookup
+    const quizByModule = {}
+    for (const c of completions ?? []) quizByModule[c.module_id] = c
+    // Merge: attach quiz result to each completed assignment when available
+    const merged = (assignments ?? []).map(a => ({
+      ...a,
+      completion: quizByModule[a.coaching_modules?.id] ?? null,
+    }))
+    setTraining(merged)
   }
 
   function setField(key, val) {
@@ -217,7 +233,9 @@ export default function AdminCoaching() {
             {/* Hidden print report — shown only via @media print */}
             <div className="coaching-print-only">
               <div className="cpr-header">
-                <div className="cpr-logo">◆ CARAT EXPEDITED / PRO FREIGHT TRANSPORTATION</div>
+                <div className="cpr-logo">
+                  {selected.company_id === 'carat' ? '◆ CARAT EXPEDITED INC' : '⬡ PRO FREIGHT TRANSPORTATION INC'}
+                </div>
                 <div className="cpr-title">Driver Coaching & Training Report</div>
                 <div className="cpr-meta">
                   <span>Driver: <strong>{selected.name}</strong></span>
@@ -279,10 +297,16 @@ export default function AdminCoaching() {
                       {trainingResults.map(r => (
                         <tr key={r.id}>
                           <td>{r.coaching_modules?.title ?? 'Module'}</td>
-                          <td style={{ textAlign: 'center' }}>{r.quiz_score ?? 0}%</td>
-                          <td style={{ textAlign: 'center' }}>{r.quiz_passed ? 'Passed ✓' : 'Failed ✗'}</td>
-                          <td style={{ textAlign: 'center' }}>+{r.points_earned}</td>
-                          <td>{new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            {r.completion ? `${r.completion.quiz_score ?? 0}%` : '—'}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {r.completion ? (r.completion.quiz_passed ? 'Passed ✓' : 'Failed ✗') : 'Completed'}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            +{r.completion?.points_earned ?? r.coaching_modules?.points_value ?? 0}
+                          </td>
+                          <td>{r.completed_at ? new Date(r.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -291,7 +315,7 @@ export default function AdminCoaching() {
               </div>
 
               <div className="cpr-footer">
-                Carat Expedited INC / Pro Freight Transportation INC — Confidential
+                {selected.company_id === 'carat' ? 'Carat Expedited INC' : 'Pro Freight Transportation INC'} — Confidential
               </div>
             </div>
 
@@ -425,8 +449,8 @@ export default function AdminCoaching() {
                 <div style={{ fontSize: 13, color: 'var(--text-2)', padding: '8px 0' }}>No modules completed yet.</div>
               ) : (
                 trainingResults.map(r => {
-                  const passed = r.quiz_passed
-                  const score  = r.quiz_score ?? 0
+                  const passed = r.completion?.quiz_passed ?? false
+                  const score  = r.completion?.quiz_score ?? null
                   return (
                     <div key={r.id} className="training-result-row">
                       <div className="tr-left">
@@ -436,12 +460,12 @@ export default function AdminCoaching() {
                         <div className="tr-title">{r.coaching_modules?.title ?? 'Module'}</div>
                       </div>
                       <div className="tr-right">
-                        <div className="tr-score" style={{ color: score >= 80 ? '#22c55e' : '#ef4444' }}>
-                          {score}%
+                        <div className="tr-score" style={{ color: score === null ? 'var(--text-2)' : score >= 80 ? '#22c55e' : '#ef4444' }}>
+                          {score !== null ? `${score}%` : '—'}
                         </div>
-                        <div className="tr-pts">+{r.points_earned} pts</div>
+                        <div className="tr-pts">+{r.completion?.points_earned ?? r.coaching_modules?.points_value ?? 0} pts</div>
                         <div className="tr-date">
-                          {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {r.completed_at ? new Date(r.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
                         </div>
                       </div>
                     </div>
