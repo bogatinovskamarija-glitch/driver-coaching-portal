@@ -56,7 +56,7 @@ export default function AdminReports() {
       driverQ,
       supabase.from('driver_stats').select('*'),
       supabase.from('coaching_sessions')
-        .select('*, drivers(name, company_id)')
+        .select('*')
         .gte('month', fromDate)
         .lte('month', toDate),
       supabase.from('phone_inspections')
