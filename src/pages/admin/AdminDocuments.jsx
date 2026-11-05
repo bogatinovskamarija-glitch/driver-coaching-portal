@@ -41,8 +41,9 @@ export default function AdminDocuments() {
   const [uploading, setUploading] = useState(false)
   const [form, setForm] = useState({ name: '', description: '', assignTo: 'all', category: 'general' })
   const [file, setFile]         = useState(null)
-  const [filter, setFilter]     = useState('all')
-  const [editId, setEditId]     = useState(null)   // doc id being reassigned
+  const [filter, setFilter]       = useState('all')
+  const [driverFilter, setDriverFilter] = useState('all')
+  const [editId, setEditId]       = useState(null)   // doc id being reassigned
   const [editAssignTo, setEditAssignTo] = useState('all')
   const fileRef = useRef()
 
@@ -145,22 +146,53 @@ export default function AdminDocuments() {
     return doc.fleet
   }
 
-  const filtered = filter === 'all'
-    ? docs
-    : docs.filter(d => d.fleet === filter || d.fleet === 'all' || (d.vehicle_name ?? '').toLowerCase().includes(filter))
+  // Find the selected driver object (for company lookup)
+  const selectedDriver = driverFilter !== 'all' ? drivers.find(d => d.id === driverFilter) : null
+
+  const filtered = docs.filter(doc => {
+    // Company tab filter
+    const companyMatch = filter === 'all'
+      || doc.fleet === filter
+      || doc.fleet === 'all'
+      || (doc.vehicle_name ?? '').toLowerCase().includes(filter)
+    if (!companyMatch) return false
+    // Driver filter
+    if (driverFilter === 'all') return true
+    // Show docs assigned directly to this driver
+    if (doc.vehicle_id === driverFilter) return true
+    // Show fleet-wide docs for this driver's company
+    if (!doc.vehicle_id && (doc.fleet === 'all' || doc.fleet === selectedDriver?.company_id)) return true
+    return false
+  })
 
   const catLabel = v => CATEGORIES.find(c => c.value === v)?.label ?? v
 
   return (
     <div className="admin-docs">
-      <div className="admin-drivers-toolbar">
+      <div className="admin-drivers-toolbar" style={{ flexWrap: 'wrap', gap: 8 }}>
         <div className="admin-filter-row">
           {['all', 'carat', 'pft'].map(f => (
-            <button key={f} className={`filter-btn ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
+            <button key={f} className={`filter-btn ${filter === f ? 'active' : ''}`}
+              onClick={() => { setFilter(f); setDriverFilter('all') }}>
               {f === 'all' ? 'All Fleets' : f === 'carat' ? '◆ Carat' : '⬡ PFT'}
             </button>
           ))}
         </div>
+        <select
+          className="cf-input"
+          style={{ width: 'auto', fontSize: 13, padding: '4px 10px' }}
+          value={driverFilter}
+          onChange={e => setDriverFilter(e.target.value)}
+        >
+          <option value="all">All Drivers</option>
+          {drivers
+            .filter(d => filter === 'all' || d.company_id === filter)
+            .map(d => (
+              <option key={d.id} value={d.id}>
+                {d.name} ({d.company_id === 'carat' ? 'Carat' : 'PFT'})
+              </option>
+            ))}
+        </select>
         <button className="btn-primary" onClick={() => setShowForm(v => !v)} style={{ marginLeft: 'auto' }}>
           + Upload Document
         </button>

@@ -198,14 +198,100 @@ export default function AdminCoaching() {
                 <div className="coaching-driver-title">{selected.name}</div>
                 <div className="coaching-driver-email">{selected.email}</div>
               </div>
-              <div className="month-nav">
-                <button className="month-btn" onClick={() => setMonth(m => {
-                  const d = new Date(m); d.setMonth(d.getMonth() - 1); return d.toISOString().split('T')[0]
-                })}>‹</button>
-                <span className="month-label">{fmtMonth(month)}</span>
-                <button className="month-btn" onClick={() => setMonth(m => {
-                  const d = new Date(m); d.setMonth(d.getMonth() + 1); return d.toISOString().split('T')[0]
-                })}>›</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button className="btn-link" style={{ fontSize: 12 }} onClick={() => window.print()}>
+                  🖨 Print Report
+                </button>
+                <div className="month-nav">
+                  <button className="month-btn" onClick={() => setMonth(m => {
+                    const d = new Date(m); d.setMonth(d.getMonth() - 1); return d.toISOString().split('T')[0]
+                  })}>‹</button>
+                  <span className="month-label">{fmtMonth(month)}</span>
+                  <button className="month-btn" onClick={() => setMonth(m => {
+                    const d = new Date(m); d.setMonth(d.getMonth() + 1); return d.toISOString().split('T')[0]
+                  })}>›</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Hidden print report — shown only via @media print */}
+            <div className="coaching-print-only">
+              <div className="cpr-header">
+                <div className="cpr-logo">◆ CARAT EXPEDITED / PRO FREIGHT TRANSPORTATION</div>
+                <div className="cpr-title">Driver Coaching & Training Report</div>
+                <div className="cpr-meta">
+                  <span>Driver: <strong>{selected.name}</strong></span>
+                  <span>Company: <strong>{selected.company_id === 'carat' ? 'Carat Expedited' : 'Pro Freight Transportation'}</strong></span>
+                  <span>Generated: <strong>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong></span>
+                </div>
+              </div>
+
+              <div className="cpr-section">
+                <div className="cpr-section-title">Coaching Session History</div>
+                {history.length === 0 ? (
+                  <div className="cpr-empty">No coaching sessions recorded.</div>
+                ) : (
+                  <table className="cpr-table">
+                    <thead>
+                      <tr><th>Month</th><th>Date</th><th>Topics Covered</th><th>Notes</th></tr>
+                    </thead>
+                    <tbody>
+                      {history.map(h => {
+                        const topics = [
+                          h.motive_coached && 'Motive Coaching',
+                          h.speeding && 'Speeding',
+                          h.hard_braking && 'Hard Braking',
+                          h.cornering && 'Cornering',
+                          h.hos_coached && `HOS (${(h.hos_types ?? []).join(', ')})`,
+                        ].filter(Boolean)
+                        const notes = [
+                          h.motive_coached && h.motive_notes && `Motive: ${h.motive_notes}`,
+                          h.speeding && h.speeding_notes && `Speeding: ${h.speeding_notes}`,
+                          h.hard_braking && h.hard_braking_notes && `Hard Braking: ${h.hard_braking_notes}`,
+                          h.cornering && h.cornering_notes && `Cornering: ${h.cornering_notes}`,
+                          h.hos_coached && h.hos_notes && `HOS: ${h.hos_notes}`,
+                          h.general_notes && h.general_notes,
+                        ].filter(Boolean)
+                        return (
+                          <tr key={h.id}>
+                            <td>{fmtMonth(h.month)}</td>
+                            <td>{h.coached_date ? new Date(h.coached_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
+                            <td>{topics.length > 0 ? topics.join(' · ') : '—'}</td>
+                            <td>{notes.length > 0 ? notes.join(' | ') : '—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <div className="cpr-section">
+                <div className="cpr-section-title">Training & Quiz Performance</div>
+                {trainingResults.length === 0 ? (
+                  <div className="cpr-empty">No training modules completed.</div>
+                ) : (
+                  <table className="cpr-table">
+                    <thead>
+                      <tr><th>Module</th><th>Quiz Score</th><th>Result</th><th>Points</th><th>Date</th></tr>
+                    </thead>
+                    <tbody>
+                      {trainingResults.map(r => (
+                        <tr key={r.id}>
+                          <td>{r.coaching_modules?.title ?? 'Module'}</td>
+                          <td style={{ textAlign: 'center' }}>{r.quiz_score ?? 0}%</td>
+                          <td style={{ textAlign: 'center' }}>{r.quiz_passed ? 'Passed ✓' : 'Failed ✗'}</td>
+                          <td style={{ textAlign: 'center' }}>+{r.points_earned}</td>
+                          <td>{new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <div className="cpr-footer">
+                Carat Expedited INC / Pro Freight Transportation INC — Confidential
               </div>
             </div>
 

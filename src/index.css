@@ -1721,6 +1721,9 @@ button { cursor: pointer; font: inherit; border: none; background: none; color: 
 }
 
 /* ─── Print styles ───────────────────────────────────────── */
+/* ─── Coaching Print Report (screen) ────────────────────── */
+.coaching-print-only { display: none; }
+
 @media print {
   .no-print, .admin-topbar, .coaching-sidebar { display: none !important; }
   body, .admin-shell, .admin-page, .report-wrap { background: #fff !important; color: #000 !important; }
@@ -1730,6 +1733,25 @@ button { cursor: pointer; font: inherit; border: none; background: none; color: 
   .report-kpi-num, .report-title, .report-logo { color: #000 !important; }
   .report-period, .report-date, .report-kpi-lbl, .report-section-title, .report-notes, .report-missing { color: #555 !important; }
   .report-table td { border-bottom: 1px solid #eee; }
+
+  /* Show only the print report in coaching */
+  .coaching-print-only { display: block !important; }
+  .coaching-form, .coaching-history, .coaching-existing-badge, .coaching-header .month-nav,
+  .coaching-header .btn-link, .cf-actions { display: none !important; }
+
+  /* Print report styles */
+  .cpr-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 20px; }
+  .cpr-logo { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #555; }
+  .cpr-title { font-size: 20px; font-weight: 800; margin: 6px 0; }
+  .cpr-meta { display: flex; justify-content: center; gap: 24px; font-size: 12px; color: #333; flex-wrap: wrap; }
+  .cpr-section { margin-bottom: 24px; }
+  .cpr-section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 10px; }
+  .cpr-empty { font-size: 12px; color: #888; }
+  .cpr-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cpr-table th { background: #f0f0f0; font-weight: 700; padding: 6px 8px; text-align: left; border: 1px solid #ccc; }
+  .cpr-table td { padding: 5px 8px; border: 1px solid #ddd; vertical-align: top; }
+  .cpr-table tr:nth-child(even) td { background: #fafafa; }
+  .cpr-footer { text-align: center; font-size: 10px; color: #aaa; border-top: 1px solid #ddd; padding-top: 10px; margin-top: 32px; }
 }
 
 /* ─── Leaderboard ────────────────────────────────────────── */
