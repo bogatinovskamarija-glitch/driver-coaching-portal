@@ -39,6 +39,7 @@ export default function AdminDashboard() {
   const [activity, setActivity]     = useState([])
   const [loading, setLoading]       = useState(true)
   const [filter, setFilter]         = useState('all') // 'all' | 'carat' | 'pft'
+  const [expandedLog, setExpandedLog] = useState(null)
 
   useEffect(() => {
     load()
@@ -50,7 +51,7 @@ export default function AdminDashboard() {
       fetchAllEquipment(),
       supabase
         .from('pre_trip_logs')
-        .select('id, driver_id, has_issues, completed_at, drivers(name, company_id)')
+        .select('id, driver_id, has_issues, completed_at, items, notes, drivers(name, company_id)')
         .order('completed_at', { ascending: false })
         .limit(20),
     ])
@@ -217,16 +218,53 @@ export default function AdminDashboard() {
             const when = new Date(log.completed_at)
             const label = when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
             const time  = when.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+            const flaggedItems = (log.items ?? []).filter(i => i.status === 'flag')
+            const isExpanded = expandedLog === log.id
             return (
-              <div key={log.id} className={`activity-row ${log.has_issues ? 'has-issues' : ''}`}>
-                <div className="activity-icon">{log.has_issues ? '⚠️' : '✅'}</div>
-                <div className="activity-info">
-                  <div className="activity-name">{log.drivers?.name ?? 'Unknown'}</div>
-                  <div className="activity-meta">
-                    {label} at {time} · {log.drivers?.company_id?.toUpperCase() ?? ''}
-                    {log.has_issues && <span className="activity-issue-tag">Issues flagged</span>}
+              <div key={log.id}>
+                <div
+                  className={`activity-row ${log.has_issues ? 'has-issues' : ''} ${log.has_issues ? 'clickable' : ''}`}
+                  onClick={() => log.has_issues && setExpandedLog(isExpanded ? null : log.id)}
+                  style={log.has_issues ? { cursor: 'pointer' } : {}}
+                >
+                  <div className="activity-icon">{log.has_issues ? '⚠️' : '✅'}</div>
+                  <div className="activity-info">
+                    <div className="activity-name">{log.drivers?.name ?? 'Unknown'}</div>
+                    <div className="activity-meta">
+                      {label} at {time} · {log.drivers?.company_id?.toUpperCase() ?? ''}
+                      {log.has_issues && (
+                        <span className="activity-issue-tag">
+                          {flaggedItems.length} item{flaggedItems.length !== 1 ? 's' : ''} flagged — tap to view
+                        </span>
+                      )}
+                    </div>
                   </div>
+                  {log.has_issues && (
+                    <div style={{ fontSize: 12, color: 'var(--text-2)', paddingRight: 8 }}>
+                      {isExpanded ? '▲' : '▼'}
+                    </div>
+                  )}
                 </div>
+                {isExpanded && (
+                  <div className="pretrip-flagged-detail">
+                    <div className="flagged-detail-title">Flagged Items</div>
+                    {flaggedItems.length > 0 ? (
+                      flaggedItems.map((item, i) => (
+                        <div key={i} className="flagged-item-row">
+                          <span className="flagged-item-label">⚠ {item.label}</span>
+                          {item.note && <span className="flagged-item-note">{item.note}</span>}
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Items were flagged but no details recorded.</div>
+                    )}
+                    {log.notes && (
+                      <div className="flagged-general-notes">
+                        <strong>Driver notes:</strong> {log.notes}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )
           })}

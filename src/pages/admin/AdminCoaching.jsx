@@ -35,10 +35,11 @@ export default function AdminCoaching() {
   const [selected, setSelected] = useState(null)
   const [month, setMonth]       = useState(monthStart(0))
   const [session, setSession]   = useState(null)
-  const [history, setHistory]   = useState([])
-  const [saving, setSaving]     = useState(false)
-  const [saved, setSaved]       = useState(false)
-  const [loading, setLoading]   = useState(true)
+  const [history, setHistory]       = useState([])
+  const [trainingResults, setTraining] = useState([])
+  const [saving, setSaving]         = useState(false)
+  const [saved, setSaved]           = useState(false)
+  const [loading, setLoading]       = useState(true)
 
   const [form, setForm] = useState({
     coached_date: new Date().toISOString().split('T')[0],
@@ -55,7 +56,7 @@ export default function AdminCoaching() {
   }, [])
 
   useEffect(() => {
-    if (selected) { loadSession(); loadHistory() }
+    if (selected) { loadSession(); loadHistory(); loadTraining() }
   }, [selected, month])
 
   async function loadDrivers() {
@@ -108,6 +109,15 @@ export default function AdminCoaching() {
       .order('month', { ascending: false })
       .limit(12)
     setHistory(data ?? [])
+  }
+
+  async function loadTraining() {
+    const { data } = await supabase
+      .from('module_completions')
+      .select('*, coaching_modules(title, category, points_value)')
+      .eq('driver_id', selected.id)
+      .order('created_at', { ascending: false })
+    setTraining(data ?? [])
   }
 
   function setField(key, val) {
@@ -321,6 +331,38 @@ export default function AdminCoaching() {
                 })}
               </div>
             )}
+
+            {/* Training results */}
+            <div className="coaching-history" style={{ marginTop: 16 }}>
+              <div className="cf-section-title">Training Results</div>
+              {trainingResults.length === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--text-2)', padding: '8px 0' }}>No modules completed yet.</div>
+              ) : (
+                trainingResults.map(r => {
+                  const passed = r.quiz_passed
+                  const score  = r.quiz_score ?? 0
+                  return (
+                    <div key={r.id} className="training-result-row">
+                      <div className="tr-left">
+                        <span className={`tr-badge ${passed ? 'pass' : 'fail'}`}>
+                          {passed ? '✓ Passed' : '✗ Failed'}
+                        </span>
+                        <div className="tr-title">{r.coaching_modules?.title ?? 'Module'}</div>
+                      </div>
+                      <div className="tr-right">
+                        <div className="tr-score" style={{ color: score >= 80 ? '#22c55e' : '#ef4444' }}>
+                          {score}%
+                        </div>
+                        <div className="tr-pts">+{r.points_earned} pts</div>
+                        <div className="tr-date">
+                          {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </>
         )}
       </div>
